@@ -440,7 +440,7 @@ function ProductModal({ product, onClose, onSave, title }) {
               className="btn-primary flex-1"
               disabled={loading}
             >
-              {loading ? 'Saving...' : 'Save Product'}
+              {loading ? 'Saving...' : product ? 'Update Product' : 'Add Product'}
             </button>
           </div>
         </form>
