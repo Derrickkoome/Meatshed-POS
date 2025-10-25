@@ -1,11 +1,14 @@
 import { useProducts } from '../contexts/ProductContext';
 import { useCart } from '../contexts/CartContext';
+import { useOrders } from '../contexts/OrderContext';
+import { useAuth } from '../contexts/AuthContext';
 import { formatPrice } from '../utils/formatters';
 import { Search, ShoppingCart, Trash2, Loader, Plus, Minus } from 'lucide-react';
 import { useState } from 'react';
+import Receipt from '../components/Receipt';
 
 export default function POSPage() {
-  const { products, loading, searchProducts, fetchProducts } = useProducts();
+  const { products, loading, searchProducts, fetchProducts, updateProduct } = useProducts();
   const { 
     cartItems, 
     addToCart, 
@@ -16,8 +19,23 @@ export default function POSPage() {
     paymentMethod,
     setPaymentMethod
   } = useCart();
+  const { createOrder } = useOrders();
+  const { currentUser } = useAuth();
   
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [completedOrder, setCompletedOrder] = useState(null);
+  const [showReceipt, setShowReceipt] = useState(false);
+
+  const categories = {
+    all: { name: 'All', icon: '🥩' },
+    beef: { name: 'Beef', icon: '🐄' },
+    chicken: { name: 'Chicken', icon: '🐔' },
+    goat: { name: 'Goat', icon: '🐐' },
+    lamb: { name: 'Lamb', icon: '🐑' },
+    pork: { name: 'Pork', icon: '🐷' },
+    processed: { name: 'Processed', icon: '🌭' },
+  };
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -28,13 +46,58 @@ export default function POSPage() {
     }
   };
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (cartItems.length === 0) {
       return;
     }
-    // TODO: Handle checkout in later phase
-    alert(`Checkout with ${paymentMethod}\nTotal: ${formatPrice(getCartTotal())}`);
+
+    // Check stock availability
+    for (const item of cartItems) {
+      const product = products.find(p => p.id === item.id);
+      if (!product || product.stock < item.quantity) {
+        alert(`Insufficient stock for ${item.title}`);
+        return;
+      }
+    }
+
+    // Calculate totals
+    const subtotal = getCartTotal();
+    const tax = subtotal * 0.16; // 16% VAT
+    const total = subtotal + tax;
+
+    // Create order
+    const order = {
+      items: cartItems,
+      subtotal,
+      tax,
+      total,
+      paymentMethod,
+      cashier: currentUser?.email || 'Guest',
+    };
+
+    const createdOrder = createOrder(order);
+
+    // Update stock for each item
+    for (const item of cartItems) {
+      const product = products.find(p => p.id === item.id);
+      if (product) {
+        await updateProduct(item.id, {
+          stock: product.stock - item.quantity
+        });
+      }
+    }
+
+    // Show receipt
+    setCompletedOrder(createdOrder);
+    setShowReceipt(true);
+
+    // Clear cart
+    clearCart();
   };
+
+  const displayProducts = selectedCategory === 'all' 
+    ? products 
+    : products.filter(p => p.category === selectedCategory);
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -43,6 +106,24 @@ export default function POSPage() {
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Products Section */}
         <div className="lg:col-span-2">
+          {/* Category Filter */}
+          <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+            {Object.entries(categories).map(([key, cat]) => (
+              <button
+                key={key}
+                onClick={() => setSelectedCategory(key)}
+                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition ${
+                  selectedCategory === key
+                    ? 'bg-meat text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                <span className="mr-1">{cat.icon}</span>
+                {cat.name}
+              </button>
+            ))}
+          </div>
+
           {/* Search */}
           <form onSubmit={handleSearch} className="mb-4">
             <div className="relative">
@@ -64,7 +145,7 @@ export default function POSPage() {
             </div>
           ) : (
             <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto">
-              {products.map((product) => (
+              {displayProducts.map((product) => (
                 <ProductCard 
                   key={product.id} 
                   product={product}
@@ -127,20 +208,28 @@ export default function POSPage() {
                   </select>
                 </div>
 
-                {/* Total */}
-                <div className="border-t pt-4">
-                  <div className="flex justify-between items-center mb-4">
+                {/* Totals */}
+                <div className="border-t pt-4 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Subtotal:</span>
+                    <span>{formatPrice(getCartTotal())}</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-gray-600">
+                    <span>Tax (16%):</span>
+                    <span>{formatPrice(getCartTotal() * 0.16)}</span>
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t">
                     <span className="text-lg font-semibold">Total:</span>
                     <span className="text-2xl font-bold text-meat">
-                      {formatPrice(getCartTotal())}
+                      {formatPrice(getCartTotal() * 1.16)}
                     </span>
                   </div>
 
                   <button 
                     onClick={handleCheckout}
-                    className="w-full btn-primary"
+                    className="w-full btn-primary mt-4"
                   >
-                    Checkout
+                    Complete Sale
                   </button>
                 </div>
               </>
@@ -148,6 +237,17 @@ export default function POSPage() {
           </div>
         </div>
       </div>
+
+      {/* Receipt Modal */}
+      {showReceipt && completedOrder && (
+        <Receipt 
+          order={completedOrder} 
+          onClose={() => {
+            setShowReceipt(false);
+            setCompletedOrder(null);
+          }} 
+        />
+      )}
     </div>
   );
 }
@@ -160,7 +260,7 @@ function ProductCard({ product, onAdd }) {
     <div className="card p-4 hover:shadow-lg transition-shadow">
       <div className="aspect-square bg-gray-200 rounded-lg mb-3 overflow-hidden">
         <img
-          src={product.thumbnail || product.images?.[0]}
+          src={product.thumbnail || 'https://via.placeholder.com/300'}
           alt={product.title}
           className="w-full h-full object-cover"
         />
