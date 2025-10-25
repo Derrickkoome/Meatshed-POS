@@ -12,6 +12,7 @@ import OrderHistoryPage from './pages/OrderHistoryPage';
 
 // Layout
 import Header from './components/layout/Header';
+import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
@@ -23,10 +24,28 @@ function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
-            <Route path="/pos" element={<POSPage />} />
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/inventory" element={<InventoryPage />} />
-            <Route path="/orders" element={<OrderHistoryPage />} />
+            
+            {/* Protected Routes */}
+            <Route path="/pos" element={
+              <ProtectedRoute>
+                <POSPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/inventory" element={
+              <ProtectedRoute>
+                <InventoryPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/orders" element={
+              <ProtectedRoute>
+                <OrderHistoryPage />
+              </ProtectedRoute>
+            } />
           </Routes>
         </main>
         <Toaster position="top-right" />
