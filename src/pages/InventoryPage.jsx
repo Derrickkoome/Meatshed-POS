@@ -9,6 +9,7 @@ export default function InventoryPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState('all');
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -19,7 +20,20 @@ export default function InventoryPage() {
     }
   };
 
-  const displayProducts = products;
+  const meatCategories = {
+    all: { name: 'All Products', icon: '🥩', color: 'bg-gray-100 text-gray-800' },
+    beef: { name: 'Beef', icon: '🐄', color: 'bg-red-100 text-red-800' },
+    goat: { name: 'Goat', icon: '🐐', color: 'bg-orange-100 text-orange-800' },
+    lamb: { name: 'Lamb/Mutton', icon: '🐑', color: 'bg-pink-100 text-pink-800' },
+    chicken: { name: 'Chicken', icon: '🐔', color: 'bg-yellow-100 text-yellow-800' },
+    pork: { name: 'Pork', icon: '🐷', color: 'bg-rose-100 text-rose-800' },
+    processed: { name: 'Processed', icon: '🌭', color: 'bg-purple-100 text-purple-800' },
+  };
+
+  // Filter products by category
+  const displayProducts = selectedCategory === 'all' 
+    ? products 
+    : products.filter(p => p.category === selectedCategory);
 
   if (loading) {
     return (
@@ -47,6 +61,28 @@ export default function InventoryPage() {
         </button>
       </div>
 
+      {/* Category Filter */}
+      <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
+        {Object.entries(meatCategories).map(([key, cat]) => (
+          <button
+            key={key}
+            onClick={() => setSelectedCategory(key)}
+            className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-all ${
+              selectedCategory === key
+                ? cat.color + ' ring-2 ring-meat'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            <span className="mr-2">{cat.icon}</span>
+            {cat.name}
+            <span className="ml-2 text-sm">
+              ({key === 'all' ? products.length : products.filter(p => p.category === key).length})
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Search Bar */}
       <form onSubmit={handleSearch} className="mb-6">
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-3 text-gray-400" size={20} />
@@ -60,6 +96,7 @@ export default function InventoryPage() {
         </div>
       </form>
 
+      {/* Products Grid */}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {displayProducts.map((product) => (
           <ProductCard 
@@ -67,6 +104,7 @@ export default function InventoryPage() {
             product={product}
             onDelete={deleteProduct}
             onEdit={setEditingProduct}
+            categoryColor={meatCategories[product.category]?.color}
           />
         ))}
       </div>
@@ -74,12 +112,16 @@ export default function InventoryPage() {
       {displayProducts.length === 0 && (
         <div className="text-center py-12">
           <Package className="mx-auto text-gray-400 mb-4" size={64} />
-          <p className="text-gray-600 text-lg">No meat products found</p>
+          <p className="text-gray-600 text-lg">
+            {selectedCategory === 'all' 
+              ? 'No products found' 
+              : `No ${meatCategories[selectedCategory].name} products found`}
+          </p>
           <button 
             onClick={() => setShowAddModal(true)}
             className="btn-primary mt-4"
           >
-            Add Your First Product
+            Add Product
           </button>
         </div>
       )}
@@ -104,7 +146,7 @@ export default function InventoryPage() {
   );
 }
 
-function ProductCard({ product, onDelete, onEdit }) {
+function ProductCard({ product, onDelete, onEdit, categoryColor }) {
   const [deleting, setDeleting] = useState(false);
 
   const handleDelete = async () => {
@@ -124,7 +166,7 @@ function ProductCard({ product, onDelete, onEdit }) {
     <div className="card hover:shadow-xl transition-shadow">
       <div className="aspect-square bg-gray-200 rounded-lg mb-4 overflow-hidden relative group">
         <img
-          src={product.thumbnail || product.images?.[0] || 'https://via.placeholder.com/300?text=No+Image'}
+          src={product.thumbnail || 'https://via.placeholder.com/300?text=No+Image'}
           alt={product.title}
           className="w-full h-full object-cover"
         />
@@ -135,6 +177,10 @@ function ProductCard({ product, onDelete, onEdit }) {
           >
             <ImageIcon size={20} className="text-meat" />
           </button>
+        </div>
+        {/* Category Badge */}
+        <div className={`absolute top-2 left-2 px-2 py-1 rounded-lg text-xs font-semibold ${categoryColor}`}>
+          {product.category.charAt(0).toUpperCase() + product.category.slice(1)}
         </div>
       </div>
       
@@ -394,7 +440,7 @@ function ProductModal({ product, onClose, onSave, title }) {
               className="btn-primary flex-1"
               disabled={loading}
             >
-              {loading ? 'Saving...' : product ? 'Update Product' : 'Add Product'}
+              {loading ? 'Saving...' : 'Save Product'}
             </button>
           </div>
         </form>

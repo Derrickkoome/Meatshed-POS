@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { productAPI } from '../services/api';
+import { meatProducts } from '../data/meatProducts';
 import toast from 'react-hot-toast';
 
 const ProductContext = createContext({});
@@ -17,8 +18,8 @@ export function ProductProvider({ children }) {
     try {
       setLoading(true);
       setError(null);
-      const data = await productAPI.getAll(limit);
-      setProducts(data.products || []);
+      // Use meat products instead of API
+      setProducts(meatProducts);
     } catch (err) {
       setError(err.message);
       toast.error('Failed to load products');
@@ -30,15 +31,19 @@ export function ProductProvider({ children }) {
   // Search products
   const searchProducts = async (query) => {
     if (!query.trim()) {
-      fetchProducts();
+      setProducts(meatProducts);
       return;
     }
 
     try {
       setLoading(true);
       setError(null);
-      const data = await productAPI.search(query);
-      setProducts(data.products || []);
+      const filtered = meatProducts.filter(product =>
+        product.title.toLowerCase().includes(query.toLowerCase()) ||
+        product.description.toLowerCase().includes(query.toLowerCase()) ||
+        product.category.toLowerCase().includes(query.toLowerCase())
+      );
+      setProducts(filtered);
       setSearchQuery(query);
     } catch (err) {
       setError(err.message);
@@ -51,7 +56,8 @@ export function ProductProvider({ children }) {
   // Get single product
   const getProductById = async (id) => {
     try {
-      const product = await productAPI.getById(id);
+      const product = meatProducts.find(p => p.id === id);
+      if (!product) throw new Error('Product not found');
       return product;
     } catch (err) {
       toast.error('Failed to load product');
@@ -59,10 +65,13 @@ export function ProductProvider({ children }) {
     }
   };
 
-  // Add product (simulated)
+  // Add product
   const addProduct = async (productData) => {
     try {
-      const newProduct = await productAPI.add(productData);
+      const newProduct = {
+        ...productData,
+        id: Date.now(), // Generate unique ID
+      };
       setProducts((prev) => [newProduct, ...prev]);
       toast.success('Product added successfully');
       return newProduct;
@@ -72,25 +81,23 @@ export function ProductProvider({ children }) {
     }
   };
 
-  // Update product (simulated)
+  // Update product
   const updateProduct = async (id, productData) => {
     try {
-      const updated = await productAPI.update(id, productData);
       setProducts((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, ...updated } : p))
+        prev.map((p) => (p.id === id ? { ...p, ...productData } : p))
       );
       toast.success('Product updated successfully');
-      return updated;
+      return productData;
     } catch (err) {
       toast.error('Failed to update product');
       throw err;
     }
   };
 
-  // Delete product (simulated)
+  // Delete product
   const deleteProduct = async (id) => {
     try {
-      await productAPI.delete(id);
       setProducts((prev) => prev.filter((p) => p.id !== id));
       toast.success('Product deleted successfully');
     } catch (err) {
