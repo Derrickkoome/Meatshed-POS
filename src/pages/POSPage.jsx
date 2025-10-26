@@ -6,6 +6,7 @@ import { formatPrice } from '../utils/formatters';
 import { Search, ShoppingCart, Trash2, Loader, Plus, Minus } from 'lucide-react';
 import { useState } from 'react';
 import Receipt from '../components/Receipt';
+import toast from 'react-hot-toast';
 
 export default function POSPage() {
   const { products, loading, searchProducts, fetchProducts, updateProduct } = useProducts();
@@ -55,44 +56,50 @@ export default function POSPage() {
     for (const item of cartItems) {
       const product = products.find(p => p.id === item.id);
       if (!product || product.stock < item.quantity) {
-        alert(`Insufficient stock for ${item.title}`);
+        toast.error(`Insufficient stock for ${item.title}`);
         return;
       }
     }
 
-    // Calculate totals
-    const subtotal = getCartTotal();
-    const tax = subtotal * 0.16; // 16% VAT
-    const total = subtotal + tax;
+    try {
+      // Calculate totals
+      const subtotal = getCartTotal();
+      const tax = subtotal * 0.16; // 16% VAT
+      const total = subtotal + tax;
 
-    // Create order
-    const order = {
-      items: cartItems,
-      subtotal,
-      tax,
-      total,
-      paymentMethod,
-      cashier: currentUser?.email || 'Guest',
-    };
+      // Create order with proper timestamp
+      const order = {
+        items: cartItems,
+        subtotal,
+        tax,
+        total,
+        paymentMethod,
+        cashier: currentUser?.email || 'Guest',
+        timestamp: new Date().toISOString(),
+      };
 
-    const createdOrder = createOrder(order);
+      const createdOrder = await createOrder(order);
 
-    // Update stock for each item
-    for (const item of cartItems) {
-      const product = products.find(p => p.id === item.id);
-      if (product) {
-        await updateProduct(item.id, {
-          stock: product.stock - item.quantity
-        });
+      // Update stock for each item
+      for (const item of cartItems) {
+        const product = products.find(p => p.id === item.id);
+        if (product) {
+          await updateProduct(item.id, {
+            stock: product.stock - item.quantity
+          });
+        }
       }
+
+      // Show receipt
+      setCompletedOrder(createdOrder);
+      setShowReceipt(true);
+
+      // Clear cart
+      clearCart();
+    } catch (error) {
+      console.error('Checkout error:', error);
+      toast.error('Checkout failed. Please try again.');
     }
-
-    // Show receipt
-    setCompletedOrder(createdOrder);
-    setShowReceipt(true);
-
-    // Clear cart
-    clearCart();
   };
 
   const displayProducts = selectedCategory === 'all' 

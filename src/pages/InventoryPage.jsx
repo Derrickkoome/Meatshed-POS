@@ -1,8 +1,9 @@
 import { useProducts } from '../contexts/ProductContext';
 import { formatPrice } from '../utils/formatters';
-import { Package, Search, Loader, Plus, Trash2, Edit, Image as ImageIcon } from 'lucide-react';
+import { Package, Search, Loader, Plus, Trash2, Edit, Image as ImageIcon, Download } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import { exportInventoryToPDF, exportInventoryToExcel } from '../utils/exportUtils';
 
 export default function InventoryPage() {
   const { products, loading, searchProducts, fetchProducts, addProduct, deleteProduct, updateProduct } = useProducts();
@@ -30,7 +31,6 @@ export default function InventoryPage() {
     processed: { name: 'Processed', icon: '🌭', color: 'bg-purple-100 text-purple-800' },
   };
 
-  // Filter products by category
   const displayProducts = selectedCategory === 'all' 
     ? products 
     : products.filter(p => p.category === selectedCategory);
@@ -52,13 +52,29 @@ export default function InventoryPage() {
           <h1 className="text-3xl font-bold">Meat Inventory</h1>
           <p className="text-gray-600 mt-1">Manage your meat products and stock levels</p>
         </div>
-        <button 
-          onClick={() => setShowAddModal(true)}
-          className="btn-primary flex items-center gap-2"
-        >
-          <Plus size={20} />
-          Add Meat Product
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => exportInventoryToPDF(products)}
+            className="btn-secondary flex items-center gap-2"
+          >
+            <Download size={20} />
+            PDF
+          </button>
+          <button
+            onClick={() => exportInventoryToExcel(products)}
+            className="btn-secondary flex items-center gap-2"
+          >
+            <Download size={20} />
+            Excel
+          </button>
+          <button 
+            onClick={() => setShowAddModal(true)}
+            className="btn-primary flex items-center gap-2"
+          >
+            <Plus size={20} />
+            Add Meat Product
+          </button>
+        </div>
       </div>
 
       {/* Category Filter */}
@@ -138,11 +154,7 @@ export default function InventoryPage() {
         <ProductModal 
           product={editingProduct}
           onClose={() => setEditingProduct(null)}
-          onSave={(data) => {
-            // Remove the id from data before passing to updateProduct
-            const { id, ...updates } = data;
-            updateProduct(editingProduct.id, updates);
-          }}
+          onSave={(data) => updateProduct(editingProduct.id, data)}
           title="Edit Meat Product"
         />
       )}
@@ -182,7 +194,6 @@ function ProductCard({ product, onDelete, onEdit, categoryColor }) {
             <ImageIcon size={20} className="text-meat" />
           </button>
         </div>
-        {/* Category Badge */}
         <div className={`absolute top-2 left-2 px-2 py-1 rounded-lg text-xs font-semibold ${categoryColor}`}>
           {product.category.charAt(0).toUpperCase() + product.category.slice(1)}
         </div>
@@ -292,11 +303,9 @@ function ProductModal({ product, onClose, onSave, title }) {
         thumbnail: formData.thumbnail,
         category: formData.category,
       });
-      toast.success(product ? 'Product updated successfully!' : 'Product added successfully!');
       onClose();
     } catch (error) {
       console.error(error);
-      toast.error('Failed to save product. Please try again.');
     } finally {
       setLoading(false);
     }

@@ -28,22 +28,23 @@ export function OrderProvider({ children }) {
   };
 
   // Create new order in Firestore
-  const createOrder = async (orderData) => {
-    try {
-      const newOrder = await createOrderInDB({
-        ...orderData,
-        id: `ORD-${Date.now()}`,
-      });
-      
-      setOrders((prev) => [newOrder, ...prev]);
-      toast.success('Order completed successfully!');
-      return newOrder;
-    } catch (error) {
-      console.error('Error creating order:', error);
-      toast.error('Failed to create order');
-      throw error;
-    }
-  };
+const createOrder = async (orderData) => {
+  try {
+    const newOrder = await createOrderInDB({
+      ...orderData,
+      id: `ORD-${Date.now()}`,
+      timestamp: orderData.timestamp || new Date().toISOString(), // Ensure timestamp exists
+    });
+    
+    setOrders((prev) => [newOrder, ...prev]);
+    toast.success('Order completed successfully!');
+    return newOrder;
+  } catch (error) {
+    console.error('Error creating order:', error);
+    toast.error('Failed to create order');
+    throw error;
+  }
+};
 
   // Get order by ID
   const getOrderById = (orderId) => {

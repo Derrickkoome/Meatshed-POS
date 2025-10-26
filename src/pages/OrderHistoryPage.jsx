@@ -1,8 +1,14 @@
 import { useOrders } from '../contexts/OrderContext';
 import { formatPrice, formatDate } from '../utils/formatters';
-import { Package, Calendar, DollarSign, FileText } from 'lucide-react';
+import { Package, Calendar, DollarSign, FileText, Download } from 'lucide-react';
 import { useState } from 'react';
 import Receipt from '../components/Receipt';
+import { 
+  exportOrdersToPDF, 
+  exportOrdersToExcel,
+  exportReceiptToPDF,
+  exportOrderDetailsToExcel 
+} from '../utils/exportUtils';
 
 export default function OrderHistoryPage() {
   const { orders, getTotalSales, getTodaysSales } = useOrders();
@@ -53,7 +59,28 @@ export default function OrderHistoryPage() {
         </div>
       ) : (
         <div className="card">
-          <h2 className="text-xl font-bold mb-4">Recent Orders</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold">Recent Orders</h2>
+            
+            {/* Export Buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => exportOrdersToPDF(orders)}
+                className="btn-secondary text-sm flex items-center gap-2"
+              >
+                <Download size={16} />
+                Export PDF
+              </button>
+              <button
+                onClick={() => exportOrdersToExcel(orders)}
+                className="btn-primary text-sm flex items-center gap-2"
+              >
+                <Download size={16} />
+                Export Excel
+              </button>
+            </div>
+          </div>
+          
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -63,7 +90,7 @@ export default function OrderHistoryPage() {
                   <th className="text-left py-3 px-4">Items</th>
                   <th className="text-left py-3 px-4">Payment</th>
                   <th className="text-right py-3 px-4">Total</th>
-                  <th className="text-center py-3 px-4">Action</th>
+                  <th className="text-center py-3 px-4">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -84,14 +111,30 @@ export default function OrderHistoryPage() {
                     <td className="py-3 px-4 text-right font-bold text-meat">
                       {formatPrice(order.total)}
                     </td>
-                    <td className="py-3 px-4 text-center">
-                      <button
-                        onClick={() => handleViewReceipt(order)}
-                        className="text-blue-600 hover:text-blue-700 flex items-center gap-1 mx-auto"
-                      >
-                        <FileText size={18} />
-                        <span className="text-sm">View</span>
-                      </button>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => handleViewReceipt(order)}
+                          className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                          title="View Receipt"
+                        >
+                          <FileText size={18} />
+                        </button>
+                        <button
+                          onClick={() => exportReceiptToPDF(order)}
+                          className="text-green-600 hover:text-green-700"
+                          title="Export PDF"
+                        >
+                          <Download size={18} />
+                        </button>
+                        <button
+                          onClick={() => exportOrderDetailsToExcel(order)}
+                          className="text-purple-600 hover:text-purple-700"
+                          title="Export Excel"
+                        >
+                          <FileText size={18} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
