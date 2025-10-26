@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
-import { Mail, Lock, UserPlus } from 'lucide-react';
+import { Mail, Lock, UserPlus, Shield } from 'lucide-react';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [role, setRole] = useState('cashier');
   const [loading, setLoading] = useState(false);
   const { signup, loginWithGoogle, loginWithGithub } = useAuth();
   const navigate = useNavigate();
@@ -32,7 +33,7 @@ export default function SignupPage() {
 
     try {
       setLoading(true);
-      await signup(email, password);
+      await signup(email, password, role);
       toast.success('Account created successfully!');
       navigate('/dashboard');
     } catch (error) {
@@ -133,6 +134,27 @@ export default function SignupPage() {
                 disabled={loading}
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Role
+            </label>
+            <div className="relative">
+              <Shield className="absolute left-3 top-3 text-gray-400" size={20} />
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-meat focus:border-transparent appearance-none"
+                disabled={loading}
+              >
+                <option value="cashier">Cashier</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Select Admin for full access or Cashier for limited access
+            </p>
           </div>
 
           <button

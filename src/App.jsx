@@ -13,6 +13,7 @@ import OrderHistoryPage from './pages/OrderHistoryPage';
 // Layout
 import Header from './components/layout/Header';
 import ProtectedRoute from './components/ProtectedRoute';
+import RoleGuard from './components/RoleGuard';
 
 function App() {
   return (
@@ -25,7 +26,7 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
             
-            {/* Protected Routes */}
+            {/* Protected Routes - All authenticated users */}
             <Route path="/pos" element={
               <ProtectedRoute>
                 <POSPage />
@@ -36,14 +37,18 @@ function App() {
                 <DashboardPage />
               </ProtectedRoute>
             } />
-            <Route path="/inventory" element={
-              <ProtectedRoute>
-                <InventoryPage />
-              </ProtectedRoute>
-            } />
             <Route path="/orders" element={
               <ProtectedRoute>
                 <OrderHistoryPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Admin Only Routes */}
+            <Route path="/inventory" element={
+              <ProtectedRoute>
+                <RoleGuard requireAdmin={true}>
+                  <InventoryPage />
+                </RoleGuard>
               </ProtectedRoute>
             } />
           </Routes>
