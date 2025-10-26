@@ -1,4 +1,8 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
+import { 
+  getOrders as getOrdersFromDB,
+  createOrder as createOrderInDB
+} from '../services/firestoreService';
 import toast from 'react-hot-toast';
 
 const OrderContext = createContext({});
@@ -7,18 +11,38 @@ export const useOrders = () => useContext(OrderContext);
 
 export function OrderProvider({ children }) {
   const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Create new order
-  const createOrder = (orderData) => {
-    const newOrder = {
-      id: `ORD-${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      ...orderData,
-    };
+  // Fetch orders from Firestore
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const ordersFromDB = await getOrdersFromDB();
+      setOrders(ordersFromDB);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      toast.error('Failed to load orders');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    setOrders((prev) => [newOrder, ...prev]);
-    toast.success('Order completed successfully!');
-    return newOrder;
+  // Create new order in Firestore
+  const createOrder = async (orderData) => {
+    try {
+      const newOrder = await createOrderInDB({
+        ...orderData,
+        id: `ORD-${Date.now()}`,
+      });
+      
+      setOrders((prev) => [newOrder, ...prev]);
+      toast.success('Order completed successfully!');
+      return newOrder;
+    } catch (error) {
+      console.error('Error creating order:', error);
+      toast.error('Failed to create order');
+      throw error;
+    }
   };
 
   // Get order by ID
@@ -51,13 +75,20 @@ export function OrderProvider({ children }) {
     });
   };
 
+  // Load orders on mount
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
   const value = {
     orders,
+    loading,
     createOrder,
     getOrderById,
     getOrdersByDateRange,
     getTotalSales,
     getTodaysSales,
+    fetchOrders,
   };
 
   return <OrderContext.Provider value={value}>{children}</OrderContext.Provider>;

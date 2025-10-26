@@ -138,7 +138,11 @@ export default function InventoryPage() {
         <ProductModal 
           product={editingProduct}
           onClose={() => setEditingProduct(null)}
-          onSave={(data) => updateProduct(editingProduct.id, data)}
+          onSave={(data) => {
+            // Remove the id from data before passing to updateProduct
+            const { id, ...updates } = data;
+            updateProduct(editingProduct.id, updates);
+          }}
           title="Edit Meat Product"
         />
       )}
@@ -288,9 +292,11 @@ function ProductModal({ product, onClose, onSave, title }) {
         thumbnail: formData.thumbnail,
         category: formData.category,
       });
+      toast.success(product ? 'Product updated successfully!' : 'Product added successfully!');
       onClose();
     } catch (error) {
       console.error(error);
+      toast.error('Failed to save product. Please try again.');
     } finally {
       setLoading(false);
     }

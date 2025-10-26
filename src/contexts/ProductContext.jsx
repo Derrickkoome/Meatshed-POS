@@ -1,5 +1,11 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { productAPI } from '../services/api';
+import { 
+  getProducts as getProductsFromDB,
+  addProduct as addProductToDB,
+  updateProduct as updateProductInDB,
+  deleteProduct as deleteProductFromDB,
+  seedProducts
+} from '../services/firestoreService';
 import { meatProducts } from '../data/meatProducts';
 import toast from 'react-hot-toast';
 
@@ -13,16 +19,26 @@ export function ProductProvider({ children }) {
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Fetch all products
-  const fetchProducts = async (limit = 30) => {
+  // Fetch all products from Firestore
+  const fetchProducts = async () => {
     try {
       setLoading(true);
       setError(null);
-      // Use meat products instead of API
-      setProducts(meatProducts);
+      const productsFromDB = await getProductsFromDB();
+      
+      // If no products in DB, seed with initial data
+      if (productsFromDB.length === 0) {
+        console.log('No products found, seeding initial data...');
+        await seedProducts(meatProducts);
+        const seededProducts = await getProductsFromDB();
+        setProducts(seededProducts);
+      } else {
+        setProducts(productsFromDB);
+      }
     } catch (err) {
       setError(err.message);
       toast.error('Failed to load products');
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -31,17 +47,18 @@ export function ProductProvider({ children }) {
   // Search products
   const searchProducts = async (query) => {
     if (!query.trim()) {
-      setProducts(meatProducts);
+      fetchProducts();
       return;
     }
 
     try {
       setLoading(true);
       setError(null);
-      const filtered = meatProducts.filter(product =>
+      const allProducts = await getProductsFromDB();
+      const filtered = allProducts.filter(product =>
         product.title.toLowerCase().includes(query.toLowerCase()) ||
-        product.description.toLowerCase().includes(query.toLowerCase()) ||
-        product.category.toLowerCase().includes(query.toLowerCase())
+        product.description?.toLowerCase().includes(query.toLowerCase()) ||
+        product.category?.toLowerCase().includes(query.toLowerCase())
       );
       setProducts(filtered);
       setSearchQuery(query);
@@ -56,8 +73,7 @@ export function ProductProvider({ children }) {
   // Get single product
   const getProductById = async (id) => {
     try {
-      const product = meatProducts.find(p => p.id === id);
-      if (!product) throw new Error('Product not found');
+      const product = products.find(p => p.id === id);
       return product;
     } catch (err) {
       toast.error('Failed to load product');
@@ -65,13 +81,10 @@ export function ProductProvider({ children }) {
     }
   };
 
-  // Add product
+  // Add product to Firestore
   const addProduct = async (productData) => {
     try {
-      const newProduct = {
-        ...productData,
-        id: Date.now(), // Generate unique ID
-      };
+      const newProduct = await addProductToDB(productData);
       setProducts((prev) => [newProduct, ...prev]);
       toast.success('Product added successfully');
       return newProduct;
@@ -81,9 +94,10 @@ export function ProductProvider({ children }) {
     }
   };
 
-  // Update product
+  // Update product in Firestore
   const updateProduct = async (id, productData) => {
     try {
+      await updateProductInDB(id, productData);
       setProducts((prev) =>
         prev.map((p) => (p.id === id ? { ...p, ...productData } : p))
       );
@@ -95,9 +109,10 @@ export function ProductProvider({ children }) {
     }
   };
 
-  // Delete product
+  // Delete product from Firestore
   const deleteProduct = async (id) => {
     try {
+      await deleteProductFromDB(id);
       setProducts((prev) => prev.filter((p) => p.id !== id));
       toast.success('Product deleted successfully');
     } catch (err) {
