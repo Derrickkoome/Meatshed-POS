@@ -62,12 +62,25 @@ export const addProduct = async (productData) => {
 // Update product
 export const updateProduct = async (productId, productData) => {
   try {
-    const docRef = doc(db, 'products', productId);
+    const docRef = doc(db, 'products', String(productId));
+    
+    // Remove any fields that shouldn't be in Firestore
+    const { id, ...updateData } = productData;
+    
+    // Clean the data - remove undefined values
+    const cleanData = {};
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] !== undefined) {
+        cleanData[key] = updateData[key];
+      }
+    });
+    
     await updateDoc(docRef, {
-      ...productData,
+      ...cleanData,
       updatedAt: new Date().toISOString(),
     });
-    return { id: productId, ...productData };
+    
+    return { id: productId, ...cleanData };
   } catch (error) {
     console.error('Error updating product:', error);
     throw error;
@@ -210,12 +223,14 @@ export const searchCustomerByPhone = async (phone) => {
 
 // ============ SEED DATA ============
 
-// Seed initial products (run once)
+/// Seed initial products (run once)
 export const seedProducts = async (products) => {
   try {
-    const batch = products.map(product => 
-      addDoc(collection(db, 'products'), product)
-    );
+    const batch = products.map(product => {
+      // Remove the numeric id and let Firestore generate one
+      const { id, ...productData } = product;
+      return addDoc(collection(db, 'products'), productData);
+    });
     await Promise.all(batch);
     console.log('Products seeded successfully');
   } catch (error) {
