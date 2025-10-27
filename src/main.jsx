@@ -7,6 +7,7 @@ import { ProductProvider } from './contexts/ProductContext'
 import { CartProvider } from './contexts/CartContext'
 import { OrderProvider } from './contexts/OrderContext'
 import { CustomerProvider } from './contexts/CustomerContext'
+import { OnlineOrderProvider } from './contexts/OnlineOrderContext' // ADD THIS LINE
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -15,7 +16,9 @@ createRoot(document.getElementById('root')).render(
         <CartProvider>
           <OrderProvider>
             <CustomerProvider>
-              <App />
+              <OnlineOrderProvider> {/* ADD THIS WRAPPER */}
+                <App />
+              </OnlineOrderProvider> {/* ADD THIS CLOSING TAG */}
             </CustomerProvider>
           </OrderProvider>
         </CartProvider>

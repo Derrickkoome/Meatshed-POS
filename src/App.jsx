@@ -10,6 +10,7 @@ import DashboardPage from './pages/DashboardPage';
 import InventoryPage from './pages/InventoryPage';
 import OrderHistoryPage from './pages/OrderHistoryPage';
 import CustomersPage from './pages/CustomersPage';
+import OnlineOrdersPage from './pages/OnlineOrdersPage';
 
 // Layout
 import Header from './components/layout/Header';
@@ -46,6 +47,13 @@ function App() {
             <Route path="/customers" element={
               <ProtectedRoute>
                 <CustomersPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Online Orders - All authenticated users can access */}
+            <Route path="/online-orders" element={
+              <ProtectedRoute>
+                <OnlineOrdersPage />
               </ProtectedRoute>
             } />
             

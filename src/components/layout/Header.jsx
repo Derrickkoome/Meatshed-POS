@@ -36,6 +36,7 @@ export default function Header() {
                 )}
                 <Link to="/customers" className="hover:text-meat-light transition">Customers</Link>
                 <Link to="/orders" className="hover:text-meat-light transition">Orders</Link>
+                <Link to="/online-orders" className="hover:text-meat-light transition">Online Orders</Link> {/* ADD THIS LINE */}
                 <Link to="/dashboard" className="hover:text-meat-light transition">Dashboard</Link>
               </>
             )}
