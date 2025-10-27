@@ -34,6 +34,7 @@ export default function Header() {
                 {isAdmin(userProfile) && (
                   <Link to="/inventory" className="hover:text-meat-light transition">Inventory</Link>
                 )}
+                <Link to="/customers" className="hover:text-meat-light transition">Customers</Link>
                 <Link to="/orders" className="hover:text-meat-light transition">Orders</Link>
                 <Link to="/dashboard" className="hover:text-meat-light transition">Dashboard</Link>
               </>

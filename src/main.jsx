@@ -6,6 +6,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import { ProductProvider } from './contexts/ProductContext'
 import { CartProvider } from './contexts/CartContext'
 import { OrderProvider } from './contexts/OrderContext'
+import { CustomerProvider } from './contexts/CustomerContext'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -13,7 +14,9 @@ createRoot(document.getElementById('root')).render(
       <ProductProvider>
         <CartProvider>
           <OrderProvider>
-            <App />
+            <CustomerProvider>
+              <App />
+            </CustomerProvider>
           </OrderProvider>
         </CartProvider>
       </ProductProvider>

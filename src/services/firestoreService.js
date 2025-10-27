@@ -181,9 +181,10 @@ export const addCustomer = async (customerData) => {
   try {
     const docRef = await addDoc(collection(db, 'customers'), {
       ...customerData,
+      totalPurchases: 0,
       createdAt: new Date().toISOString(),
     });
-    return { id: docRef.id, ...customerData };
+    return { id: docRef.id, ...customerData, totalPurchases: 0, createdAt: new Date().toISOString() };
   } catch (error) {
     console.error('Error adding customer:', error);
     throw error;

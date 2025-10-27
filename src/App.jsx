@@ -9,6 +9,7 @@ import SignupPage from './pages/SignupPage';
 import DashboardPage from './pages/DashboardPage';
 import InventoryPage from './pages/InventoryPage';
 import OrderHistoryPage from './pages/OrderHistoryPage';
+import CustomersPage from './pages/CustomersPage';
 
 // Layout
 import Header from './components/layout/Header';
@@ -40,6 +41,11 @@ function App() {
             <Route path="/orders" element={
               <ProtectedRoute>
                 <OrderHistoryPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/customers" element={
+              <ProtectedRoute>
+                <CustomersPage />
               </ProtectedRoute>
             } />
             

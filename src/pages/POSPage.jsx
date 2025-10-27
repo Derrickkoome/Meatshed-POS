@@ -2,6 +2,7 @@ import { useProducts } from '../contexts/ProductContext';
 import { useCart } from '../contexts/CartContext';
 import { useOrders } from '../contexts/OrderContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useCustomers } from '../contexts/CustomerContext';
 import { formatPrice } from '../utils/formatters';
 import { Search, ShoppingCart, Trash2, Loader, Plus, Minus } from 'lucide-react';
 import { useState } from 'react';
@@ -22,11 +23,14 @@ export default function POSPage() {
   } = useCart();
   const { createOrder } = useOrders();
   const { currentUser } = useAuth();
+  const { findCustomerByPhone } = useCustomers();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [completedOrder, setCompletedOrder] = useState(null);
   const [showReceipt, setShowReceipt] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [customerPhone, setCustomerPhone] = useState('');
 
   const categories = {
     all: { name: 'All', icon: '🥩' },
@@ -44,6 +48,22 @@ export default function POSPage() {
       searchProducts(searchQuery);
     } else {
       fetchProducts();
+    }
+  };
+
+  const handleCustomerSearch = async () => {
+    if (!customerPhone.trim()) {
+      setSelectedCustomer(null);
+      return;
+    }
+
+    const customer = await findCustomerByPhone(customerPhone);
+    if (customer) {
+      setSelectedCustomer(customer);
+      toast.success(`Customer found: ${customer.name}`);
+    } else {
+      setSelectedCustomer(null);
+      toast.error('Customer not found');
     }
   };
 
@@ -67,7 +87,7 @@ export default function POSPage() {
       const tax = subtotal * 0.16; // 16% VAT
       const total = subtotal + tax;
 
-      // Create order with proper timestamp
+      // Create order with customer info
       const order = {
         items: cartItems,
         subtotal,
@@ -76,6 +96,9 @@ export default function POSPage() {
         paymentMethod,
         cashier: currentUser?.email || 'Guest',
         timestamp: new Date().toISOString(),
+        customerId: selectedCustomer?.id || null,
+        customerName: selectedCustomer?.name || 'Walk-in Customer',
+        customerPhone: selectedCustomer?.phone || null,
       };
 
       const createdOrder = await createOrder(order);
@@ -94,8 +117,10 @@ export default function POSPage() {
       setCompletedOrder(createdOrder);
       setShowReceipt(true);
 
-      // Clear cart
+      // Clear cart and customer
       clearCart();
+      setSelectedCustomer(null);
+      setCustomerPhone('');
     } catch (error) {
       console.error('Checkout error:', error);
       toast.error('Checkout failed. Please try again.');
@@ -197,9 +222,40 @@ export default function POSPage() {
               )}
             </div>
 
-            {/* Payment Method */}
+            {/* Customer Selection */}
             {cartItems.length > 0 && (
               <>
+                <div className="border-t pt-4 mb-4">
+                  <label className="block text-sm font-medium mb-2">
+                    Customer (Optional)
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="tel"
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      placeholder="Enter phone number"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-meat focus:border-transparent text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCustomerSearch}
+                      className="btn-secondary text-sm px-3"
+                    >
+                      Search
+                    </button>
+                  </div>
+                  {selectedCustomer && (
+                    <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-sm font-semibold text-green-800">
+                        {selectedCustomer.name}
+                      </p>
+                      <p className="text-xs text-green-600">{selectedCustomer.phone}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Payment Method */}
                 <div className="border-t pt-4 mb-4">
                   <label className="block text-sm font-medium mb-2">
                     Payment Method
