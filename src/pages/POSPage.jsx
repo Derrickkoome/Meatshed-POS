@@ -82,10 +82,10 @@ export default function POSPage() {
     }
 
     try {
-      // Calculate totals
-      const subtotal = getCartTotal();
-      const tax = subtotal * 0.16; // 16% VAT
-      const total = subtotal + tax;
+      // Calculate totals with tax-inclusive pricing
+      const total = getCartTotal(); // This is the final price customers see
+      const subtotal = total / 1.16; // Reverse calculate: base price before 16% tax
+      const tax = total - subtotal; // Tax amount
 
       // Create order with customer info
       const order = {
@@ -274,17 +274,17 @@ export default function POSPage() {
                 {/* Totals */}
                 <div className="border-t pt-4 space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span>Subtotal:</span>
-                    <span>{formatPrice(getCartTotal())}</span>
+                    <span>Subtotal (excl. tax):</span>
+                    <span>{formatPrice(getCartTotal() / 1.16)}</span>
                   </div>
                   <div className="flex justify-between text-sm text-gray-600">
                     <span>Tax (16%):</span>
-                    <span>{formatPrice(getCartTotal() * 0.16)}</span>
+                    <span>{formatPrice(getCartTotal() - (getCartTotal() / 1.16))}</span>
                   </div>
                   <div className="flex justify-between items-center pt-2 border-t">
                     <span className="text-lg font-semibold">Total:</span>
                     <span className="text-2xl font-bold text-meat">
-                      {formatPrice(getCartTotal() * 1.16)}
+                      {formatPrice(getCartTotal())}
                     </span>
                   </div>
 
