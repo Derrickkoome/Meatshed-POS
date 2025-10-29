@@ -1,6 +1,7 @@
 import { useOrders } from '../contexts/OrderContext';
 import { useProducts } from '../contexts/ProductContext';
 import { formatPrice } from '../utils/formatters';
+import { clearAllSalesStats } from '../services/firestoreService';
 import {
   calculateTotalRevenue,
   calculateAverageOrderValue,
@@ -22,13 +23,36 @@ import {
   ArrowUp,
   ArrowDown,
   Calendar,
-  CreditCard
+  CreditCard,
+  Trash2
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import toast from 'react-hot-toast';
 
 export default function DashboardPage() {
-  const { orders } = useOrders();
+  const { orders, fetchOrders } = useOrders();
   const { products } = useProducts();
+  const [clearingStats, setClearingStats] = useState(false);
+
+  const clearStats = async () => {
+    if (!window.confirm('Are you sure you want to clear all sales stats? This will permanently delete all order history and customer purchase data. This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setClearingStats(true);
+      await clearAllSalesStats();
+      toast.success('All sales stats cleared successfully');
+      // Refresh orders data
+      fetchOrders();
+    } catch (error) {
+      console.error('Error clearing stats:', error);
+      toast.error('Failed to clear sales stats');
+    } finally {
+      setClearingStats(false);
+    }
+  };
 
   // Calculate metrics
   const todayOrders = filterOrdersByDateRange(orders, 'today');
@@ -59,9 +83,19 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold">Dashboard</h1>
           <p className="text-gray-600 mt-1">Welcome back! Here's your business overview</p>
         </div>
-        <Link to="/pos" className="btn-primary">
-          Open POS
-        </Link>
+        <div className="flex gap-3">
+          <button
+            onClick={clearStats}
+            disabled={clearingStats}
+            className="btn-secondary flex items-center gap-2 text-red-600 border-red-200 hover:bg-red-50 disabled:opacity-50"
+          >
+            <Trash2 size={18} />
+            {clearingStats ? 'Clearing...' : 'Clear Stats'}
+          </button>
+          <Link to="/pos" className="btn-primary">
+            Open POS
+          </Link>
+        </div>
       </div>
 
       {/* Stats Overview */}

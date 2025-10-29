@@ -222,6 +222,85 @@ export const searchCustomerByPhone = async (phone) => {
   }
 };
 
+// ============ ONLINE ORDERS ============
+
+// Get all online orders
+export const getOnlineOrders = async () => {
+  try {
+    const q = query(collection(db, 'onlineOrders'), orderBy('createdAt', 'desc'));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+  } catch (error) {
+    console.error('Error getting online orders:', error);
+    throw error;
+  }
+};
+
+// Delete all online orders (for data reset)
+export const deleteAllOnlineOrders = async () => {
+  try {
+    const querySnapshot = await getDocs(collection(db, 'onlineOrders'));
+    const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(deletePromises);
+    console.log('All online orders deleted successfully');
+  } catch (error) {
+    console.error('Error deleting online orders:', error);
+    throw error;
+  }
+};
+
+// ============ CLEAR STATS ============
+
+// Delete all orders (reset sales stats)
+export const deleteAllOrders = async () => {
+  try {
+    const querySnapshot = await getDocs(collection(db, 'orders'));
+    const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(deletePromises);
+    console.log('All orders deleted successfully');
+  } catch (error) {
+    console.error('Error deleting orders:', error);
+    throw error;
+  }
+};
+
+// Clear all customer purchase history
+export const clearCustomerPurchaseHistory = async () => {
+  try {
+    const querySnapshot = await getDocs(collection(db, 'customers'));
+    const updatePromises = querySnapshot.docs.map(async (docSnap) => {
+      await updateDoc(docSnap.ref, {
+        totalPurchases: 0,
+        lastPurchase: null,
+        updatedAt: new Date().toISOString()
+      });
+    });
+    await Promise.all(updatePromises);
+    console.log('Customer purchase history cleared successfully');
+  } catch (error) {
+    console.error('Error clearing customer history:', error);
+    throw error;
+  }
+};
+
+// Clear all sales stats (combined function)
+export const clearAllSalesStats = async () => {
+  try {
+    await Promise.all([
+      deleteAllOrders(),
+      deleteAllOnlineOrders(),
+      clearCustomerPurchaseHistory()
+    ]);
+    console.log('All sales stats cleared successfully');
+  } catch (error) {
+    console.error('Error clearing sales stats:', error);
+    throw error;
+  }
+};
+
 // ============ SEED DATA ============
 
 /// Seed initial products (run once)

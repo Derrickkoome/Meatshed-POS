@@ -147,7 +147,7 @@ export default function OnlineOrdersPage() {
 
       // Create a record in the main orders collection for accountability and receipts
       const subtotal = order.totalAmount;
-      const tax = subtotal * 0.16; // 16% VAT
+      const tax = 0; // Tax included in pricing
       const total = subtotal + tax;
 
       // Transform items to match POS order format
