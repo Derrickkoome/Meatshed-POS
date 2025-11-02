@@ -182,7 +182,7 @@ function ProductCard({ product, onDelete, onEdit, categoryColor }) {
     <div className="card hover:shadow-xl transition-shadow">
       <div className="aspect-square bg-gray-200 rounded-lg mb-4 overflow-hidden relative group">
         <img
-          src={product.thumbnail || 'https://via.placeholder.com/300?text=No+Image'}
+          src={product.thumbnail || 'https://picsum.photos/300?random'}
           alt={product.title}
           className="w-full h-full object-cover"
         />
@@ -380,7 +380,7 @@ function ProductModal({ product, onClose, onSave, title }) {
                   alt="Preview" 
                   className="w-32 h-32 object-cover rounded-lg border"
                   onError={(e) => {
-                    e.target.src = 'https://via.placeholder.com/300?text=Invalid+Image';
+                    e.target.src = 'https://picsum.photos/300?random';
                   }}
                 />
               </div>

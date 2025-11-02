@@ -5,9 +5,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCustomers } from '../contexts/CustomerContext';
 import { formatPrice } from '../utils/formatters';
 import { Search, ShoppingCart, Trash2, Loader, Plus, Minus } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Receipt from '../components/Receipt';
 import toast from 'react-hot-toast';
+
+const STORAGE_KEY = 'meatshed:inventory';
 
 export default function POSPage() {
   const { products, loading, searchProducts, fetchProducts, updateProduct } = useProducts();
@@ -31,6 +33,14 @@ export default function POSPage() {
   const [showReceipt, setShowReceipt] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerPhone, setCustomerPhone] = useState('');
+  const [inventory, setInventory] = useState(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : /* fallback initial state */ [];
+    } catch {
+      return [];
+    }
+  });
 
   const categories = {
     all: { name: 'All', icon: '🥩' },
@@ -130,6 +140,18 @@ export default function POSPage() {
   const displayProducts = selectedCategory === 'all' 
     ? products 
     : products.filter(p => p.category === selectedCategory);
+
+  // save local copy so dev reloads/HMR or transient network issues don't lose everything
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(inventory));
+    } catch (e) {
+      console.warn('Failed to save inventory to localStorage', e);
+    }
+  }, [inventory]);
+
+  // When you re-sync from Firestore, merge instead of replacing to avoid abrupt loss:
+  // setInventory(prev => mergeFromFirestore(prev, firestoreData));
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -323,7 +345,7 @@ function ProductCard({ product, onAdd }) {
     <div className="card p-4 hover:shadow-lg transition-shadow">
       <div className="aspect-square bg-gray-200 rounded-lg mb-3 overflow-hidden">
         <img
-          src={product.thumbnail || 'https://via.placeholder.com/300'}
+          src={product.thumbnail || 'https://picsum.photos/300?random'}
           alt={product.title}
           className="w-full h-full object-cover"
         />

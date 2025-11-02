@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
+import { initializeFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -14,10 +14,17 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
+// force long-polling to avoid QUIC/HTTP3 listen failures
+export const db = initializeFirestore(app, { experimentalForceLongPolling: true });
+
+// enable IndexedDB persistence (offline + survive dev reloads where possible)
+enableIndexedDbPersistence(db).catch((err) => {
+  // failed-precondition: multiple tabs open
+  // unimplemented: browser doesn't support persistence (e.g. private mode)
+  console.warn('Firestore persistence failed:', err.code || err.message, err);
+});
+
 // Initialize Firebase Authentication
 export const auth = getAuth(app);
-
-// Initialize Firestore
-export const db = getFirestore(app);
 
 export default app;

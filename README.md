@@ -2,7 +2,7 @@
 
 A modern, comprehensive Point of Sale (POS) system designed specifically for meat shops and butcher stores. Built with React and Firebase, featuring inventory management, customer tracking, receipt generation, and analytics.
 
-![Meatshed POS](https://via.placeholder.com/800x400?text=Meatshed+POS+Screenshot)
+![Meatshed POS](https://derrickkoome.github.io/Meatshed-Pos/)
 
 ## ✨ Features
 
