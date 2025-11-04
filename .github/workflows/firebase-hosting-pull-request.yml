@@ -19,8 +19,16 @@ jobs:
       - name: Build Vite
         run: npm run build
 
+      - name: Verify Firebase SA secret exists
+        run: test -n "${{ secrets.FIREBASE_SERVICE_ACCOUNT_MEATSHED_POS_82164 }}"
+
+      - name: Print Firebase CLI version
+        run: npx firebase-tools --version
+
       - name: Deploy preview
         uses: FirebaseExtended/action-hosting-deploy@v0
+        env:
+          FIREBASE_DEBUG: "true"
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_MEATSHED_POS_82164 }}
