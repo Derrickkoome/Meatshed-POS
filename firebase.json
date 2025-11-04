@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "site": "YOUR_HOSTING_SITE_ID",
+    "site": "meatshed-pos-82164",
     "public": "dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [{ "source": "**", "destination": "/index.html" }]

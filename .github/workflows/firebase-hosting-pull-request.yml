@@ -22,8 +22,8 @@ jobs:
       - name: Verify Firebase SA secret exists
         run: test -n "${{ secrets.FIREBASE_SERVICE_ACCOUNT_MEATSHED_POS_82164 }}"
 
-      - name: Print Firebase CLI version
-        run: npx firebase-tools --version
+      - name: Print Firebase CLI version (Node 20)
+        run: npx --yes firebase-tools@13.15.0 --version
 
       - name: Deploy preview
         uses: FirebaseExtended/action-hosting-deploy@v0
@@ -36,3 +36,4 @@ jobs:
           channelId: preview-${{ github.event.number }}
           expires: 7d
           entryPoint: .
+          firebaseToolsVersion: "13.15.0"
