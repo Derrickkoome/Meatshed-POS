@@ -10,7 +10,7 @@ import {
   orderBy,
   onSnapshot
 } from 'firebase/firestore';
-import { db } from '../services/firebase';
+import { db } from '../firebase';
 import toast from 'react-hot-toast';
 
 const OnlineOrderContext = createContext();

@@ -19,7 +19,7 @@ import RoleGuard from './components/RoleGuard';
 
 function App() {
   return (
-    <Router basename={import.meta.env.DEV ? '/' : '/Meatshed-POS/'}>
+    <Router>
       <div className="min-h-screen flex flex-col">
         <Header />
         <main className="flex-1">

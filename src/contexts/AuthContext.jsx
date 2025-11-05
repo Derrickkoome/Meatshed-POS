@@ -8,7 +8,7 @@ import {
   GithubAuthProvider,
   signInWithPopup
 } from 'firebase/auth';
-import { auth } from '../services/firebase';
+import { auth } from '../firebase';
 import { createUserProfile, getUserProfile } from '../services/userService';
 
 const AuthContext = createContext({});

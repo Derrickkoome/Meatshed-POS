@@ -99,7 +99,11 @@ export default function POSPage() {
 
       // Create order with customer info
       const order = {
-        items: cartItems,
+        items: cartItems.map(item => ({
+          ...item,
+          quantity: Number(item.quantity), // Ensure quantity is a number
+          price: Number(item.price), // Ensure price is a number
+        })),
         subtotal,
         tax,
         total,
@@ -118,7 +122,7 @@ export default function POSPage() {
         const product = products.find(p => p.id === item.id);
         if (product) {
           await updateProduct(item.id, {
-            stock: product.stock - item.quantity
+            stock: product.stock - Number(item.quantity) // Ensure quantity is a number
           });
         }
       }
@@ -149,9 +153,6 @@ export default function POSPage() {
       console.warn('Failed to save inventory to localStorage', e);
     }
   }, [inventory]);
-
-  // When you re-sync from Firestore, merge instead of replacing to avoid abrupt loss:
-  // setInventory(prev => mergeFromFirestore(prev, firestoreData));
 
   return (
     <div className="container mx-auto px-4 py-6">

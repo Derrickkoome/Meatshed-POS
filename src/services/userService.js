@@ -1,5 +1,5 @@
 import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { db } from './firebase';
+import { db } from '../firebase';
 
 // User roles
 export const ROLES = {

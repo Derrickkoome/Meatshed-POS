@@ -2,7 +2,9 @@
 
 A modern, comprehensive Point of Sale (POS) system designed specifically for meat shops and butcher stores. Built with React and Firebase, featuring inventory management, customer tracking, receipt generation, and analytics.
 
-![Meatshed POS](https://derrickkoome.github.io/Meatshed-Pos/)
+## 🚀 Live Demo
+
+Experience the application live at: [https://meatshed-pos-82164.web.app](https://meatshed-pos-82164.web.app)
 
 ## ✨ Features
 
@@ -34,7 +36,7 @@ A modern, comprehensive Point of Sale (POS) system designed specifically for mea
 
 ## 🚀 Live Demo
 
-Experience the application live at: [https://derrickkoome.github.io/Meatshed-POS](https://derrickkoome.github.io/Meatshed-POS)
+Experience the application live at: [https://meatshed-pos-82164.web.app](https://meatshed-pos-82164.web.app)
 
 ## 🛠 Technology Stack
 
@@ -158,16 +160,13 @@ The application will be available at `http://localhost:5173`
 
 ## 🚀 Deployment
 
-### Deploy to GitHub Pages
+### Deploy to Firebase Hosting
 ```bash
-# Build the application
-npm run build
-
-# Deploy to GitHub Pages
+# Build and deploy
 npm run deploy
 ```
 
-The app will be deployed to your GitHub Pages URL.
+The app will be live at `https://meatshed-pos-82164.web.app`
 
 ### Other Deployment Options
 This project can be deployed to any static hosting service like:
@@ -253,4 +252,5 @@ For support or questions:
 
 ---
 
-Made with ❤️ for butcher shops and meat retailers everywhere.
+Made with ❤️ for butcher shops and meat retailers
+Made with ❤️ for butcher shops and meat retailers
