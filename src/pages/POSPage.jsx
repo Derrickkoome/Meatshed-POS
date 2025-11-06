@@ -63,11 +63,11 @@ export default function POSPage() {
     }
   };
 
-  // ✅ Update quantity as NUMBER
+  // ✅ Update quantity as NUMBER (supports decimals)
   const updateQuantity = (productId, newQuantity) => {
-    const qty = Number(newQuantity); // ✅ Convert to number
+    const qty = parseFloat(newQuantity); // ✅ Use parseFloat instead of Number for decimals
     
-    if (qty <= 0) {
+    if (isNaN(qty) || qty <= 0) {
       removeFromCart(productId);
       return;
     }
@@ -81,7 +81,7 @@ export default function POSPage() {
     setCartItems((prev) =>
       prev.map((item) =>
         item.id === productId
-          ? { ...item, quantity: qty } // ✅ Store as number
+          ? { ...item, quantity: qty } // ✅ Store decimal number
           : item
       )
     );
@@ -152,16 +152,16 @@ export default function POSPage() {
       const subtotal = total / 1.16;
       const tax = total - subtotal;
 
-      // ✅ Ensure all quantities are NUMBERS in the order
+      // ✅ Ensure all quantities are NUMBERS (including decimals) in the order
       const order = {
         items: cartItems.map(item => ({
           ...item,
-          quantity: Number(item.quantity), // ✅ Ensure it's a number
-          price: Number(item.price), // ✅ Ensure it's a number
+          quantity: parseFloat(item.quantity), // ✅ Support decimal quantities
+          price: parseFloat(item.price),
         })),
-        subtotal: Number(subtotal),
-        tax: Number(tax),
-        total: Number(total),
+        subtotal: parseFloat(subtotal.toFixed(2)),
+        tax: parseFloat(tax.toFixed(2)),
+        total: parseFloat(total.toFixed(2)),
         paymentMethod,
         cashier: currentUser?.email || 'Guest',
         timestamp: new Date().toISOString(),
@@ -177,7 +177,7 @@ export default function POSPage() {
         const product = products.find(p => p.id === item.id);
         if (product) {
           await updateProduct(item.id, {
-            stock: product.stock - Number(item.quantity) // ✅ Use number
+            stock: parseFloat((product.stock - item.quantity).toFixed(2)) // ✅ Use parseFloat for decimal quantities
           });
         }
       }
@@ -433,6 +433,19 @@ function ProductCard({ product, onAdd, isInCart }) {
 }
 
 function CartItem({ item, onUpdateQuantity, onRemove }) {
+  const [editMode, setEditMode] = useState(false);
+  const [inputValue, setInputValue] = useState(item.quantity.toString());
+
+  const handleDirectInput = () => {
+    const qty = parseFloat(inputValue);
+    if (!isNaN(qty) && qty > 0) {
+      onUpdateQuantity(item.id, qty);
+    } else {
+      setInputValue(item.quantity.toString());
+    }
+    setEditMode(false);
+  };
+
   return (
     <div className="flex items-start gap-3 p-2 border rounded-lg">
       <img
@@ -447,24 +460,52 @@ function CartItem({ item, onUpdateQuantity, onRemove }) {
         
         <div className="flex items-center gap-2 mt-2">
           <button
-            onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
+            onClick={() => onUpdateQuantity(item.id, Math.max(0.1, item.quantity - 0.5))}
             className="p-1 rounded bg-gray-200 hover:bg-gray-300"
+            title="Decrease by 0.5"
           >
             <Minus size={14} />
           </button>
           
-          <span className="text-sm font-semibold w-8 text-center">
-            {item.quantity}
-          </span>
+          {editMode ? (
+            <input
+              type="number"
+              step="0.1"
+              min="0.1"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onBlur={handleDirectInput}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') handleDirectInput();
+              }}
+              className="w-16 text-sm font-semibold text-center border border-meat rounded px-1 py-0.5"
+              autoFocus
+            />
+          ) : (
+            <span 
+              className="text-sm font-semibold w-16 text-center cursor-pointer hover:bg-gray-100 rounded px-1 py-0.5"
+              onClick={() => {
+                setEditMode(true);
+                setInputValue(item.quantity.toString());
+              }}
+              title="Click to edit quantity"
+            >
+              {item.quantity}
+            </span>
+          )}
           
           <button
-            onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
+            onClick={() => onUpdateQuantity(item.id, item.quantity + 0.5)}
             disabled={item.quantity >= item.stock}
             className="p-1 rounded bg-gray-200 hover:bg-gray-300 disabled:opacity-50"
+            title="Increase by 0.5"
           >
             <Plus size={14} />
           </button>
         </div>
+        <p className="text-xs text-gray-500 mt-1">
+          Click quantity to edit • Subtotal: {formatPrice(item.price * item.quantity)}
+        </p>
       </div>
 
       <button
