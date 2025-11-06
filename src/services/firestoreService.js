@@ -1,38 +1,42 @@
-import {
-  collection,
-  doc,
-  getDocs,
-  getDoc,
-  addDoc,
-  updateDoc,
+import { 
+  collection, 
+  doc, 
+  getDocs, 
+  getDoc, 
+  addDoc, 
+  updateDoc, 
   deleteDoc,
+  writeBatch,
   query,
   where,
   orderBy,
-  setDoc,
+  serverTimestamp 
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db } from '../config/firebase';
 
-// ============ PRODUCTS ============
+// Collections
+const PRODUCTS_COLLECTION = 'products';
+const ORDERS_COLLECTION = 'orders';
+const CUSTOMERS_COLLECTION = 'customers';
 
-// Get all products
-export const getProducts = async () => {
+// ============== PRODUCTS ==============
+
+export async function getProducts() {
   try {
-    const querySnapshot = await getDocs(collection(db, 'products'));
+    const querySnapshot = await getDocs(collection(db, PRODUCTS_COLLECTION));
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
   } catch (error) {
-    console.error('Error getting products:', error);
+    console.error('Error fetching products:', error);
     throw error;
   }
-};
+}
 
-// Get single product
-export const getProduct = async (productId) => {
+export async function getProduct(id) {
   try {
-    const docRef = doc(db, 'products', productId);
+    const docRef = doc(db, PRODUCTS_COLLECTION, id);
     const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
@@ -40,84 +44,91 @@ export const getProduct = async (productId) => {
     }
     return null;
   } catch (error) {
-    console.error('Error getting product:', error);
+    console.error('Error fetching product:', error);
     throw error;
   }
-};
+}
 
-// Add product
-export const addProduct = async (productData) => {
+export async function createProduct(productData) {
   try {
-    const docRef = await addDoc(collection(db, 'products'), {
+    const docRef = await addDoc(collection(db, PRODUCTS_COLLECTION), {
       ...productData,
-      createdAt: new Date().toISOString(),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
     });
+    
     return { id: docRef.id, ...productData };
   } catch (error) {
-    console.error('Error adding product:', error);
+    console.error('Error creating product:', error);
     throw error;
   }
-};
+}
 
-// Update product
-export const updateProduct = async (productId, productData) => {
+export async function updateProduct(id, productData) {
   try {
-    const docRef = doc(db, 'products', String(productId));
-    
-    // Remove any fields that shouldn't be in Firestore
-    const { id, ...updateData } = productData;
-    
-    // Clean the data - remove undefined values
-    const cleanData = {};
-    Object.keys(updateData).forEach(key => {
-      if (updateData[key] !== undefined) {
-        cleanData[key] = updateData[key];
-      }
-    });
-    
+    const docRef = doc(db, PRODUCTS_COLLECTION, id);
     await updateDoc(docRef, {
-      ...cleanData,
-      updatedAt: new Date().toISOString(),
+      ...productData,
+      updatedAt: serverTimestamp()
     });
     
-    return { id: productId, ...cleanData };
+    return { id, ...productData };
   } catch (error) {
     console.error('Error updating product:', error);
     throw error;
   }
-};
+}
 
-// Delete product
-export const deleteProduct = async (productId) => {
+export async function deleteProduct(id) {
   try {
-    await deleteDoc(doc(db, 'products', productId));
+    const docRef = doc(db, PRODUCTS_COLLECTION, id);
+    await deleteDoc(docRef);
   } catch (error) {
     console.error('Error deleting product:', error);
     throw error;
   }
-};
+}
 
-// ============ ORDERS ============
-
-// Get all orders
-export const getOrders = async () => {
+export async function seedProducts(products) {
   try {
-    const q = query(collection(db, 'orders'), orderBy('timestamp', 'desc'));
+    const batch = writeBatch(db);
+    
+    products.forEach((product) => {
+      const docRef = doc(collection(db, PRODUCTS_COLLECTION));
+      batch.set(docRef, {
+        ...product,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+    });
+    
+    await batch.commit();
+    console.log('Products seeded successfully');
+  } catch (error) {
+    console.error('Error seeding products:', error);
+    throw error;
+  }
+}
+
+// ============== ORDERS ==============
+
+export async function getOrders() {
+  try {
+    const q = query(collection(db, ORDERS_COLLECTION), orderBy('timestamp', 'desc'));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
   } catch (error) {
-    console.error('Error getting orders:', error);
+    console.error('Error fetching orders:', error);
     throw error;
   }
-};
+}
 
-// Get single order
-export const getOrder = async (orderId) => {
+export async function getOrder(id) {
   try {
-    const docRef = doc(db, 'orders', orderId);
+    const docRef = doc(db, ORDERS_COLLECTION, id);
     const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
@@ -125,45 +136,43 @@ export const getOrder = async (orderId) => {
     }
     return null;
   } catch (error) {
-    console.error('Error getting order:', error);
+    console.error('Error fetching order:', error);
     throw error;
   }
-};
+}
 
-// Create order
-export const createOrder = async (orderData) => {
+export async function createOrder(orderData) {
   try {
-    const docRef = await addDoc(collection(db, 'orders'), {
+    const docRef = await addDoc(collection(db, ORDERS_COLLECTION), {
       ...orderData,
-      timestamp: new Date().toISOString(),
+      createdAt: serverTimestamp()
     });
+    
     return { id: docRef.id, ...orderData };
   } catch (error) {
     console.error('Error creating order:', error);
     throw error;
   }
-};
+}
 
-// ============ CUSTOMERS ============
+// ============== CUSTOMERS ==============
 
-// Get all customers
-export const getCustomers = async () => {
+export async function getCustomers() {
   try {
-    const querySnapshot = await getDocs(collection(db, 'customers'));
+    const querySnapshot = await getDocs(collection(db, CUSTOMERS_COLLECTION));
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
   } catch (error) {
-    console.error('Error getting customers:', error);
+    console.error('Error fetching customers:', error);
     throw error;
   }
-};
+}
 
-// Get single customer
-export const getCustomer = async (customerId) => {
+export async function getCustomer(id) {
   try {
-    const docRef = doc(db, 'customers', customerId);
+    const docRef = doc(db, CUSTOMERS_COLLECTION, id);
     const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
@@ -171,44 +180,14 @@ export const getCustomer = async (customerId) => {
     }
     return null;
   } catch (error) {
-    console.error('Error getting customer:', error);
+    console.error('Error fetching customer:', error);
     throw error;
   }
-};
+}
 
-// Add customer
-export const addCustomer = async (customerData) => {
+export async function getCustomerByPhone(phone) {
   try {
-    const docRef = await addDoc(collection(db, 'customers'), {
-      ...customerData,
-      totalPurchases: 0,
-      createdAt: new Date().toISOString(),
-    });
-    return { id: docRef.id, ...customerData, totalPurchases: 0, createdAt: new Date().toISOString() };
-  } catch (error) {
-    console.error('Error adding customer:', error);
-    throw error;
-  }
-};
-
-// Update customer
-export const updateCustomer = async (customerId, customerData) => {
-  try {
-    const docRef = doc(db, 'customers', customerId);
-    await updateDoc(docRef, {
-      ...customerData,
-      updatedAt: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error('Error updating customer:', error);
-    throw error;
-  }
-};
-
-// Search customers by phone
-export const searchCustomerByPhone = async (phone) => {
-  try {
-    const q = query(collection(db, 'customers'), where('phone', '==', phone));
+    const q = query(collection(db, CUSTOMERS_COLLECTION), where('phone', '==', phone));
     const querySnapshot = await getDocs(q);
     
     if (!querySnapshot.empty) {
@@ -217,104 +196,53 @@ export const searchCustomerByPhone = async (phone) => {
     }
     return null;
   } catch (error) {
-    console.error('Error searching customer:', error);
+    console.error('Error fetching customer by phone:', error);
     throw error;
   }
-};
+}
 
-// ============ ONLINE ORDERS ============
+// Alias for backward compatibility
+export const searchCustomerByPhone = getCustomerByPhone;
 
-// Get all online orders
-export const getOnlineOrders = async () => {
+export async function createCustomer(customerData) {
   try {
-    const q = query(collection(db, 'onlineOrders'), orderBy('createdAt', 'desc'));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-  } catch (error) {
-    console.error('Error getting online orders:', error);
-    throw error;
-  }
-};
-
-// Delete all online orders (for data reset)
-export const deleteAllOnlineOrders = async () => {
-  try {
-    const querySnapshot = await getDocs(collection(db, 'onlineOrders'));
-    const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
-    await Promise.all(deletePromises);
-    console.log('All online orders deleted successfully');
-  } catch (error) {
-    console.error('Error deleting online orders:', error);
-    throw error;
-  }
-};
-
-// ============ CLEAR STATS ============
-
-// Delete all orders (reset sales stats)
-export const deleteAllOrders = async () => {
-  try {
-    const querySnapshot = await getDocs(collection(db, 'orders'));
-    const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
-    await Promise.all(deletePromises);
-    console.log('All orders deleted successfully');
-  } catch (error) {
-    console.error('Error deleting orders:', error);
-    throw error;
-  }
-};
-
-// Clear all customer purchase history
-export const clearCustomerPurchaseHistory = async () => {
-  try {
-    const querySnapshot = await getDocs(collection(db, 'customers'));
-    const updatePromises = querySnapshot.docs.map(async (docSnap) => {
-      await updateDoc(docSnap.ref, {
-        totalPurchases: 0,
-        lastPurchase: null,
-        updatedAt: new Date().toISOString()
-      });
+    const docRef = await addDoc(collection(db, CUSTOMERS_COLLECTION), {
+      ...customerData,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
     });
-    await Promise.all(updatePromises);
-    console.log('Customer purchase history cleared successfully');
+    
+    return { id: docRef.id, ...customerData };
   } catch (error) {
-    console.error('Error clearing customer history:', error);
+    console.error('Error creating customer:', error);
     throw error;
   }
-};
+}
 
-// Clear all sales stats (combined function)
-export const clearAllSalesStats = async () => {
+// Alias for backward compatibility
+export const addCustomer = createCustomer;
+
+export async function updateCustomer(id, customerData) {
   try {
-    await Promise.all([
-      deleteAllOrders(),
-      deleteAllOnlineOrders(),
-      clearCustomerPurchaseHistory()
-    ]);
-    console.log('All sales stats cleared successfully');
-  } catch (error) {
-    console.error('Error clearing sales stats:', error);
-    throw error;
-  }
-};
-
-// ============ SEED DATA ============
-
-/// Seed initial products (run once)
-export const seedProducts = async (products) => {
-  try {
-    const batch = products.map(product => {
-      // Remove the numeric id and let Firestore generate one
-      const { id, ...productData } = product;
-      return addDoc(collection(db, 'products'), productData);
+    const docRef = doc(db, CUSTOMERS_COLLECTION, id);
+    await updateDoc(docRef, {
+      ...customerData,
+      updatedAt: serverTimestamp()
     });
-    await Promise.all(batch);
-    console.log('Products seeded successfully');
+    
+    return { id, ...customerData };
   } catch (error) {
-    console.error('Error seeding products:', error);
+    console.error('Error updating customer:', error);
     throw error;
   }
-};
+}
+
+export async function deleteCustomer(id) {
+  try {
+    const docRef = doc(db, CUSTOMERS_COLLECTION, id);
+    await deleteDoc(docRef);
+  } catch (error) {
+    console.error('Error deleting customer:', error);
+    throw error;
+  }
+}

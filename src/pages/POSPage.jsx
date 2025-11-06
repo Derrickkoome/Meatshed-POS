@@ -1,5 +1,4 @@
 import { useProducts } from '../contexts/ProductContext';
-import { useCart } from '../contexts/CartContext';
 import { useOrders } from '../contexts/OrderContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useCustomers } from '../contexts/CustomerContext';
@@ -13,16 +12,6 @@ const STORAGE_KEY = 'meatshed:inventory';
 
 export default function POSPage() {
   const { products, loading, searchProducts, fetchProducts, updateProduct } = useProducts();
-  const { 
-    cartItems, 
-    addToCart, 
-    removeFromCart, 
-    updateQuantity,
-    getCartTotal,
-    clearCart,
-    paymentMethod,
-    setPaymentMethod
-  } = useCart();
   const { createOrder } = useOrders();
   const { currentUser } = useAuth();
   const { findCustomerByPhone } = useCustomers();
@@ -33,10 +22,12 @@ export default function POSPage() {
   const [showReceipt, setShowReceipt] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerPhone, setCustomerPhone] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('Cash');
+  const [cartItems, setCartItems] = useState([]);
   const [inventory, setInventory] = useState(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : /* fallback initial state */ [];
+      return raw ? JSON.parse(raw) : [];
     } catch {
       return [];
     }
@@ -50,6 +41,70 @@ export default function POSPage() {
     lamb: { name: 'Lamb', icon: '🐑' },
     pork: { name: 'Pork', icon: '🐷' },
     processed: { name: 'Processed', icon: '🌭' },
+  };
+
+  // ✅ Add to cart with NUMBER quantity
+  const addToCart = (product) => {
+    const existingItem = cartItems.find((item) => item.id === product.id);
+
+    if (existingItem) {
+      updateQuantity(product.id, existingItem.quantity + 1);
+    } else {
+      const newItem = {
+        id: product.id,
+        title: product.title,
+        price: Number(product.price), // ✅ Ensure price is number
+        quantity: 1, // ✅ Start with number
+        image: product.thumbnail || product.images?.[0],
+        stock: product.stock,
+      };
+      setCartItems((prev) => [...prev, newItem]);
+      toast.success(`${product.title} added to cart`);
+    }
+  };
+
+  // ✅ Update quantity as NUMBER
+  const updateQuantity = (productId, newQuantity) => {
+    const qty = Number(newQuantity); // ✅ Convert to number
+    
+    if (qty <= 0) {
+      removeFromCart(productId);
+      return;
+    }
+
+    const item = cartItems.find(i => i.id === productId);
+    if (item && qty > item.stock) {
+      toast.error('Cannot exceed available stock');
+      return;
+    }
+
+    setCartItems((prev) =>
+      prev.map((item) =>
+        item.id === productId
+          ? { ...item, quantity: qty } // ✅ Store as number
+          : item
+      )
+    );
+  };
+
+  const removeFromCart = (productId) => {
+    setCartItems((prev) => prev.filter((item) => item.id !== productId));
+    toast.success('Item removed from cart');
+  };
+
+  const clearCart = () => {
+    setCartItems([]);
+  };
+
+  // ✅ Calculate total with numbers
+  const getCartTotal = () => {
+    return cartItems.reduce((total, item) => {
+      return total + (Number(item.price) * Number(item.quantity));
+    }, 0);
+  };
+
+  const isInCart = (productId) => {
+    return cartItems.some((item) => item.id === productId);
   };
 
   const handleSearch = (e) => {
@@ -93,20 +148,20 @@ export default function POSPage() {
 
     try {
       // Calculate totals with tax-inclusive pricing
-      const total = getCartTotal(); // This is the final price customers see
-      const subtotal = total / 1.16; // Reverse calculate: base price before 16% tax
-      const tax = total - subtotal; // Tax amount
+      const total = getCartTotal();
+      const subtotal = total / 1.16;
+      const tax = total - subtotal;
 
-      // Create order with customer info
+      // ✅ Ensure all quantities are NUMBERS in the order
       const order = {
         items: cartItems.map(item => ({
           ...item,
-          quantity: Number(item.quantity), // Ensure quantity is a number
-          price: Number(item.price), // Ensure price is a number
+          quantity: Number(item.quantity), // ✅ Ensure it's a number
+          price: Number(item.price), // ✅ Ensure it's a number
         })),
-        subtotal,
-        tax,
-        total,
+        subtotal: Number(subtotal),
+        tax: Number(tax),
+        total: Number(total),
         paymentMethod,
         cashier: currentUser?.email || 'Guest',
         timestamp: new Date().toISOString(),
@@ -122,7 +177,7 @@ export default function POSPage() {
         const product = products.find(p => p.id === item.id);
         if (product) {
           await updateProduct(item.id, {
-            stock: product.stock - Number(item.quantity) // Ensure quantity is a number
+            stock: product.stock - Number(item.quantity) // ✅ Use number
           });
         }
       }
@@ -145,7 +200,6 @@ export default function POSPage() {
     ? products 
     : products.filter(p => p.category === selectedCategory);
 
-  // save local copy so dev reloads/HMR or transient network issues don't lose everything
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(inventory));
@@ -204,7 +258,8 @@ export default function POSPage() {
                 <ProductCard 
                   key={product.id} 
                   product={product}
-                  onAdd={() => addToCart(product, 1)}
+                  onAdd={() => addToCart(product)}
+                  isInCart={isInCart(product.id)}
                 />
               ))}
             </div>
@@ -338,10 +393,7 @@ export default function POSPage() {
   );
 }
 
-function ProductCard({ product, onAdd }) {
-  const { isInCart } = useCart();
-  const inCart = isInCart(product.id);
-
+function ProductCard({ product, onAdd, isInCart }) {
   return (
     <div className="card p-4 hover:shadow-lg transition-shadow">
       <div className="aspect-square bg-gray-200 rounded-lg mb-3 overflow-hidden">
@@ -367,14 +419,14 @@ function ProductCard({ product, onAdd }) {
         onClick={onAdd}
         disabled={product.stock === 0}
         className={`w-full py-2 rounded-lg font-semibold transition ${
-          inCart
+          isInCart
             ? 'bg-green-100 text-green-700'
             : product.stock === 0
             ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
             : 'btn-primary'
         }`}
       >
-        {product.stock === 0 ? 'Out of Stock' : inCart ? 'In Cart ✓' : 'Add to Cart'}
+        {product.stock === 0 ? 'Out of Stock' : isInCart ? 'In Cart ✓' : 'Add to Cart'}
       </button>
     </div>
   );

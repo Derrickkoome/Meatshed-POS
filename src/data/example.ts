@@ -1,4 +1,4 @@
-import { db } from "../firebase";
+import { db } from "../config/firebase";
 import { collection, addDoc, getDocs } from "firebase/firestore";
 
 export async function addItem(data: any) {

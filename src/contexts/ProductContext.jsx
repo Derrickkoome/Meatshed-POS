@@ -1,10 +1,10 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { 
-  getProducts as getProductsFromDB,
-  addProduct as addProductToDB,
+import {
+  getProducts,
+  createProduct as createProductInDB,
   updateProduct as updateProductInDB,
   deleteProduct as deleteProductFromDB,
-  seedProducts
+  seedProducts,
 } from '../services/firestoreService';
 import { meatProducts } from '../data/meatProducts';
 import toast from 'react-hot-toast';
@@ -24,13 +24,13 @@ export function ProductProvider({ children }) {
     try {
       setLoading(true);
       setError(null);
-      const productsFromDB = await getProductsFromDB();
-      
+      const productsFromDB = await getProducts();
+
       // If no products in DB, seed with initial data
       if (productsFromDB.length === 0) {
         console.log('No products found, seeding initial data...');
         await seedProducts(meatProducts);
-        const seededProducts = await getProductsFromDB();
+        const seededProducts = await getProducts();
         setProducts(seededProducts);
       } else {
         setProducts(productsFromDB);
@@ -54,8 +54,8 @@ export function ProductProvider({ children }) {
     try {
       setLoading(true);
       setError(null);
-      const allProducts = await getProductsFromDB();
-      const filtered = allProducts.filter(product =>
+      const allProducts = await getProducts();
+      const filtered = allProducts.filter((product) =>
         product.title.toLowerCase().includes(query.toLowerCase()) ||
         product.description?.toLowerCase().includes(query.toLowerCase()) ||
         product.category?.toLowerCase().includes(query.toLowerCase())
@@ -73,7 +73,7 @@ export function ProductProvider({ children }) {
   // Get single product
   const getProductById = async (id) => {
     try {
-      const product = products.find(p => p.id === id);
+      const product = products.find((p) => p.id === id);
       return product;
     } catch (err) {
       toast.error('Failed to load product');
@@ -84,7 +84,7 @@ export function ProductProvider({ children }) {
   // Add product to Firestore
   const addProduct = async (productData) => {
     try {
-      const newProduct = await addProductToDB(productData);
+      const newProduct = await createProductInDB(productData);
       setProducts((prev) => [newProduct, ...prev]);
       toast.success('Product added successfully');
       return newProduct;
