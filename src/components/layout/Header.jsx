@@ -11,12 +11,19 @@ export default function Header() {
   const navigate = useNavigate();
 
   const navItems = [
-    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', adminOnly: true },
     { to: '/pos', icon: ShoppingCart, label: 'Point of Sale' },
-    { to: '/inventory', icon: Package, label: 'Inventory' },
+    { to: '/inventory', icon: Package, label: 'Inventory', adminOnly: true },
     { to: '/orders', icon: FileText, label: 'Order History' },
     { to: '/online-orders', icon: Truck, label: 'Online Orders' },
   ];
+
+  const filteredNavItems = navItems.filter(item => {
+    if (item.adminOnly && !isAdmin(userProfile)) {
+      return false;
+    }
+    return true;
+  });
 
   const handleLogout = async () => {
     try {
@@ -72,7 +79,7 @@ export default function Header() {
           )}
           
           <ul className="space-y-1">
-            {navItems.map((item) => (
+            {filteredNavItems.map((item) => (
               <li key={item.to}>
                 <NavLink
                   to={item.to}
@@ -116,14 +123,15 @@ export default function Header() {
             <nav className="hidden md:flex gap-6">
               {currentUser && (
                 <>
+                  {isAdmin(userProfile) && (
+                    <Link to="/dashboard" className="hover:text-meat-light transition">Dashboard</Link>
+                  )}
                   <Link to="/pos" className="hover:text-meat-light transition">POS</Link>
                   {isAdmin(userProfile) && (
                     <Link to="/inventory" className="hover:text-meat-light transition">Inventory</Link>
                   )}
-                  <Link to="/customers" className="hover:text-meat-light transition">Customers</Link>
                   <Link to="/orders" className="hover:text-meat-light transition">Orders</Link>
-                  <Link to="/online-orders" className="hover:text-meat-light transition">Online Orders</Link> {/* ADD THIS LINE */}
-                  <Link to="/dashboard" className="hover:text-meat-light transition">Dashboard</Link>
+                  <Link to="/online-orders" className="hover:text-meat-light transition">Online Orders</Link>
                 </>
               )}
             </nav>

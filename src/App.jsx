@@ -6,6 +6,7 @@ import { OrderProvider } from './contexts/OrderContext';
 import { CustomerProvider } from './contexts/CustomerContext';
 import { OnlineOrderProvider } from './contexts/OnlineOrderContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import RoleGuard from './components/RoleGuard';
 import Header from './components/layout/Header';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
@@ -39,9 +40,23 @@ function App() {
                           <Header />
                           <div className="pt-16 lg:pt-0">
                             <Routes>
-                              <Route path="/dashboard" element={<DashboardPage />} />
+                              <Route 
+                                path="/dashboard" 
+                                element={
+                                  <RoleGuard requireAdmin={true}>
+                                    <DashboardPage />
+                                  </RoleGuard>
+                                } 
+                              />
                               <Route path="/pos" element={<POSPage />} />
-                              <Route path="/inventory" element={<InventoryPage />} />
+                              <Route 
+                                path="/inventory" 
+                                element={
+                                  <RoleGuard requireAdmin={true}>
+                                    <InventoryPage />
+                                  </RoleGuard>
+                                } 
+                              />
                               <Route path="/orders" element={<OrderHistoryPage />} />
                               <Route path="/online-orders" element={<OnlineOrdersPage />} />
                             </Routes>

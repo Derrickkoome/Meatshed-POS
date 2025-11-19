@@ -17,8 +17,11 @@ export default function RoleGuard({ children, requireAdmin = false }) {
           <p className="text-gray-600 mb-4">
             You don't have permission to access this page. Admin access required.
           </p>
-          <a href="/dashboard" className="btn-primary inline-block">
-            Go to Dashboard
+          <p className="text-gray-500 text-sm mb-4">
+            This page is restricted to administrators only. As a cashier, you have access to POS, Order History, and Online Orders.
+          </p>
+          <a href="/pos" className="btn-primary inline-block">
+            Go to POS
           </a>
         </div>
       </div>

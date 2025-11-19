@@ -25,6 +25,11 @@ export default function DashboardPage() {
   const { products } = useProducts();
   const [isFixing, setIsFixing] = useState(false);
   const [showTodayModal, setShowTodayModal] = useState(false);
+  const [showRevenueModal, setShowRevenueModal] = useState(false);
+  const [showOrdersModal, setShowOrdersModal] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [revenueDate, setRevenueDate] = useState(new Date().toISOString().split('T')[0]);
+  const [ordersDate, setOrdersDate] = useState(new Date().toISOString().split('T')[0]);
   const [stats, setStats] = useState({
     totalRevenue: 0,
     totalOrders: 0,
@@ -193,19 +198,19 @@ export default function DashboardPage() {
     return salesArray;
   };
 
-  const getTodayOrdersByCategory = () => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  const getOrdersByDateAndCategory = (dateString) => {
+    const targetDate = new Date(dateString);
+    targetDate.setHours(0, 0, 0, 0);
     
-    const todayOrders = orders.filter(order => {
+    const filteredOrders = orders.filter(order => {
       const orderDate = new Date(order.timestamp);
       orderDate.setHours(0, 0, 0, 0);
-      return orderDate.getTime() === today.getTime();
+      return orderDate.getTime() === targetDate.getTime();
     });
 
     const categoryData = {};
 
-    todayOrders.forEach((order) => {
+    filteredOrders.forEach((order) => {
       if (!order.items || !Array.isArray(order.items)) return;
       
       order.items.forEach((item) => {
@@ -250,12 +255,35 @@ export default function DashboardPage() {
       .sort((a, b) => b.totalRevenue - a.totalRevenue);
   };
 
+  const getTodayOrdersByCategory = () => {
+    return getOrdersByDateAndCategory(new Date().toISOString().split('T')[0]);
+  };
+
+  const getOrdersByDate = (dateString) => {
+    const targetDate = new Date(dateString);
+    targetDate.setHours(0, 0, 0, 0);
+    
+    return orders.filter(order => {
+      const orderDate = new Date(order.timestamp);
+      orderDate.setHours(0, 0, 0, 0);
+      return orderDate.getTime() === targetDate.getTime();
+    });
+  };
+
+  const getRevenueByDate = (dateString) => {
+    const dateOrders = getOrdersByDate(dateString);
+    return dateOrders.reduce((sum, order) => {
+      return sum + (parseFloat(order.total) || 0);
+    }, 0);
+  };
+
   const topProducts = getTopSellingProducts();
   const topCategories = getTopSellingCategories();
   const lowStockProducts = getLowStockProducts();
   const recentOrders = getRecentOrders();
   const last7DaysSales = getLast7DaysSales();
   const todayOrdersByCategory = getTodayOrdersByCategory();
+  const selectedDateOrders = getOrdersByDateAndCategory(selectedDate);
 
   // Calculate max sales for chart scaling
   const maxSales = Math.max(...last7DaysSales.map(d => d.sales), 1);
@@ -328,12 +356,16 @@ export default function DashboardPage() {
           value={formatPrice(stats.totalRevenue)}
           icon={<DollarSign />}
           color="bg-green-500"
+          onClick={() => setShowRevenueModal(true)}
+          clickable
         />
         <StatCard
           title="Total Orders"
           value={stats.totalOrders}
           icon={<ShoppingBag />}
           color="bg-blue-500"
+          onClick={() => setShowOrdersModal(true)}
+          clickable
         />
         <StatCard
           title="Today's Orders"
@@ -571,28 +603,48 @@ export default function DashboardPage() {
       {showTodayModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between p-6 border-b">
-              <h2 className="text-2xl font-bold flex items-center gap-2">
-                <Calendar className="text-orange-500" />
-                Today's Orders - {new Date().toLocaleDateString('en-US', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
-                })}
-              </h2>
-              <button
-                onClick={() => setShowTodayModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X size={24} />
-              </button>
+            <div className="flex flex-col gap-4 p-6 border-b">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                  <Calendar className="text-orange-500" />
+                  Daily Orders
+                </h2>
+                <button
+                  onClick={() => setShowTodayModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+              
+              {/* Date Picker */}
+              <div className="flex items-center gap-3">
+                <label htmlFor="date-picker" className="font-semibold text-gray-700">
+                  Select Date:
+                </label>
+                <input
+                  id="date-picker"
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  max={new Date().toISOString().split('T')[0]}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+                <span className="text-gray-600">
+                  {new Date(selectedDate).toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })}
+                </span>
+              </div>
             </div>
             
             <div className="p-6 overflow-y-auto flex-1">
-              {todayOrdersByCategory.length > 0 ? (
+              {selectedDateOrders.length > 0 ? (
                 <div className="space-y-6">
-                  {todayOrdersByCategory.map((category) => (
+                  {selectedDateOrders.map((category) => (
                     <div key={category.category} className="border rounded-lg overflow-hidden">
                       <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-4">
                         <div className="flex items-center justify-between">
@@ -641,9 +693,218 @@ export default function DashboardPage() {
               ) : (
                 <div className="text-center py-12">
                   <Calendar className="mx-auto text-gray-300 mb-4" size={64} />
-                  <p className="text-gray-500 text-lg">No orders placed today yet</p>
+                  <p className="text-gray-500 text-lg">No orders placed on this date</p>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Revenue Modal */}
+      {showRevenueModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex flex-col gap-4 p-6 border-b">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                  <DollarSign className="text-green-500" />
+                  Daily Revenue
+                </h2>
+                <button
+                  onClick={() => setShowRevenueModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+              
+              {/* Date Picker */}
+              <div className="flex items-center gap-3">
+                <label htmlFor="revenue-date-picker" className="font-semibold text-gray-700">
+                  Select Date:
+                </label>
+                <input
+                  id="revenue-date-picker"
+                  type="date"
+                  value={revenueDate}
+                  onChange={(e) => setRevenueDate(e.target.value)}
+                  max={new Date().toISOString().split('T')[0]}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+                <span className="text-gray-600">
+                  {new Date(revenueDate).toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })}
+                </span>
+              </div>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1">
+              <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-8 text-white text-center mb-6">
+                <p className="text-lg opacity-90 mb-2">Total Revenue</p>
+                <p className="text-5xl font-bold mb-2">{formatPrice(getRevenueByDate(revenueDate))}</p>
+                <p className="text-sm opacity-75">
+                  {getOrdersByDate(revenueDate).length} order{getOrdersByDate(revenueDate).length !== 1 ? 's' : ''}
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="font-bold text-lg mb-3">Orders on this date:</h3>
+                {getOrdersByDate(revenueDate).length > 0 ? (
+                  getOrdersByDate(revenueDate).map((order) => (
+                    <div
+                      key={order.id}
+                      className="flex justify-between items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    >
+                      <div>
+                        <p className="font-semibold">Order #{order.id.slice(0, 8)}</p>
+                        <p className="text-sm text-gray-600">
+                          {new Date(order.timestamp).toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                        <p className="text-xs text-gray-500">{order.paymentMethod}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-green-600 text-lg">
+                          {formatPrice(order.total)}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {order.items?.length || 0} item{order.items?.length !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-12">
+                    <DollarSign className="mx-auto text-gray-300 mb-4" size={64} />
+                    <p className="text-gray-500 text-lg">No revenue on this date</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Orders Modal */}
+      {showOrdersModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex flex-col gap-4 p-6 border-b">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                  <ShoppingBag className="text-blue-500" />
+                  Daily Orders
+                </h2>
+                <button
+                  onClick={() => setShowOrdersModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+              
+              {/* Date Picker */}
+              <div className="flex items-center gap-3">
+                <label htmlFor="orders-date-picker" className="font-semibold text-gray-700">
+                  Select Date:
+                </label>
+                <input
+                  id="orders-date-picker"
+                  type="date"
+                  value={ordersDate}
+                  onChange={(e) => setOrdersDate(e.target.value)}
+                  max={new Date().toISOString().split('T')[0]}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <span className="text-gray-600">
+                  {new Date(ordersDate).toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })}
+                </span>
+              </div>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1">
+              <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-8 text-white text-center mb-6">
+                <p className="text-lg opacity-90 mb-2">Total Orders</p>
+                <p className="text-5xl font-bold mb-2">{getOrdersByDate(ordersDate).length}</p>
+                <p className="text-sm opacity-75">
+                  Revenue: {formatPrice(getRevenueByDate(ordersDate))}
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                {getOrdersByDate(ordersDate).length > 0 ? (
+                  getOrdersByDate(ordersDate)
+                    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                    .map((order) => (
+                      <div
+                        key={order.id}
+                        className="border rounded-lg overflow-hidden hover:shadow-md transition-shadow"
+                      >
+                        <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 border-b">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <p className="font-bold text-lg">Order #{order.id.slice(0, 8)}</p>
+                              <p className="text-sm text-gray-600">
+                                {new Date(order.timestamp).toLocaleTimeString('en-US', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  second: '2-digit'
+                                })}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-blue-600 text-xl">
+                                {formatPrice(order.total)}
+                              </p>
+                              <p className="text-sm text-gray-600">{order.paymentMethod}</p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="p-4">
+                          <p className="font-semibold mb-2 text-sm text-gray-700">Order Items:</p>
+                          <div className="space-y-2">
+                            {order.items?.map((item, idx) => (
+                              <div key={idx} className="flex items-center justify-between text-sm bg-gray-50 p-2 rounded">
+                                <div className="flex items-center gap-2">
+                                  <img
+                                    src={item.image}
+                                    alt={item.title}
+                                    className="w-10 h-10 object-cover rounded"
+                                  />
+                                  <span className="font-medium">{item.title}</span>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-semibold">{item.quantity}x {formatPrice(item.price)}</p>
+                                  <p className="text-xs text-gray-500">
+                                    {formatPrice(item.quantity * item.price)}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                ) : (
+                  <div className="text-center py-12">
+                    <ShoppingBag className="mx-auto text-gray-300 mb-4" size={64} />
+                    <p className="text-gray-500 text-lg">No orders on this date</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
