@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 
 export default function ManualOrderPage() {
   const { products } = useProducts();
-  const { addOrder } = useOrders();
+  const { createOrder } = useOrders();
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedTime, setSelectedTime] = useState(new Date().toTimeString().slice(0, 5));
   const [cart, setCart] = useState([]);
@@ -89,7 +89,7 @@ export default function ManualOrderPage() {
         isManualEntry: true,
       };
 
-      await addOrder(orderData);
+      await createOrder(orderData);
       
       toast.success(`Order added successfully for ${new Date(orderDateTime).toLocaleString()}`);
       setCart([]);
@@ -98,7 +98,7 @@ export default function ManualOrderPage() {
       setPaymentMethod('Cash');
     } catch (error) {
       console.error('Error adding manual order:', error);
-      toast.error('Failed to add order');
+      toast.error('Failed to add order. Please check your internet connection.');
     }
   };
 
