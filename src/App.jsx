@@ -16,6 +16,7 @@ import POSPage from './pages/POSPage';
 import InventoryPage from './pages/InventoryPage';
 import OrderHistoryPage from './pages/OrderHistoryPage';
 import OnlineOrdersPage from './pages/OnlineOrdersPage';
+import ManualOrderPage from './pages/ManualOrderPage';
 
 function App() {
   return (
@@ -59,6 +60,14 @@ function App() {
                               />
                               <Route path="/orders" element={<OrderHistoryPage />} />
                               <Route path="/online-orders" element={<OnlineOrdersPage />} />
+                              <Route 
+                                path="/manual-order" 
+                                element={
+                                  <RoleGuard requireAdmin={true}>
+                                    <ManualOrderPage />
+                                  </RoleGuard>
+                                } 
+                              />
                             </Routes>
                           </div>
                         </div>

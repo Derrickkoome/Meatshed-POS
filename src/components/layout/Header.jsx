@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
-import { Menu, X, LayoutDashboard, ShoppingCart, Package, FileText, Truck, LogOut, ShoppingBag, User, Shield } from 'lucide-react';
+import { Menu, X, LayoutDashboard, ShoppingCart, Package, FileText, Truck, LogOut, ShoppingBag, User, Shield, Calendar } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { isAdmin } from '../../services/userService';
 import toast from 'react-hot-toast';
@@ -16,6 +16,7 @@ export default function Header() {
     { to: '/inventory', icon: Package, label: 'Inventory', adminOnly: true },
     { to: '/orders', icon: FileText, label: 'Order History' },
     { to: '/online-orders', icon: Truck, label: 'Online Orders' },
+    { to: '/manual-order', icon: Calendar, label: 'Manual Order Entry', adminOnly: true },
   ];
 
   const filteredNavItems = navItems.filter(item => {
@@ -128,7 +129,10 @@ export default function Header() {
                   )}
                   <Link to="/pos" className="hover:text-meat-light transition">POS</Link>
                   {isAdmin(userProfile) && (
-                    <Link to="/inventory" className="hover:text-meat-light transition">Inventory</Link>
+                    <>
+                      <Link to="/inventory" className="hover:text-meat-light transition">Inventory</Link>
+                      <Link to="/manual-order" className="hover:text-meat-light transition">Manual Entry</Link>
+                    </>
                   )}
                   <Link to="/orders" className="hover:text-meat-light transition">Orders</Link>
                   <Link to="/online-orders" className="hover:text-meat-light transition">Online Orders</Link>
