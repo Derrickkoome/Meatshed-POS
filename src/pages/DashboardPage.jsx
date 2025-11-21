@@ -54,12 +54,18 @@ export default function DashboardPage() {
       return orderDate.getTime() === today.getTime();
     });
 
+    // Calculate total stock value
+    const totalStockValue = products.reduce((sum, product) => {
+      return sum + (parseFloat(product.price) || 0) * (parseFloat(product.stock) || 0);
+    }, 0);
+
     setStats({
       totalRevenue,
       totalOrders: orders.length,
       totalProducts: products.length,
       lowStockCount: lowStockProducts.length,
       todayOrders: todayOrders.length,
+      totalStockValue,
     });
   }, [orders, products]);
 
@@ -304,51 +310,6 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* Alert Notifications */}
-      {(lowStockProducts.length > 0 || topCategories.length > 0) && (
-        <div className="grid lg:grid-cols-2 gap-4 mb-6">
-          {/* Low Stock Alert */}
-          {lowStockProducts.length > 0 && (
-            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="text-red-500 flex-shrink-0 mt-0.5" size={24} />
-                <div className="flex-1">
-                  <h3 className="font-bold text-red-800 mb-1">
-                    Low Stock Alert!
-                  </h3>
-                  <p className="text-red-700 text-sm mb-2">
-                    {lowStockProducts.length} product{lowStockProducts.length > 1 ? 's' : ''} running low on stock
-                  </p>
-                  <button className="text-red-800 text-sm font-semibold hover:underline">
-                    View All →
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Top Categories Notification */}
-          {topCategories.length > 0 && (
-            <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded-lg">
-              <div className="flex items-start gap-3">
-                <Award className="text-green-500 flex-shrink-0 mt-0.5" size={24} />
-                <div className="flex-1">
-                  <h3 className="font-bold text-green-800 mb-1">
-                    Top Performing Categories
-                  </h3>
-                  <p className="text-green-700 text-sm mb-2">
-                    {topCategories[0].category} leading with {formatPrice(topCategories[0].revenue)} in sales
-                  </p>
-                  <button className="text-green-800 text-sm font-semibold hover:underline">
-                    View Details →
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
         <StatCard
@@ -382,10 +343,10 @@ export default function DashboardPage() {
           color="bg-purple-500"
         />
         <StatCard
-          title="Low Stock Items"
-          value={stats.lowStockCount}
-          icon={<AlertCircle />}
-          color="bg-red-500"
+          title="Total Stock Value"
+          value={formatPrice(stats.totalStockValue)}
+          icon={<TrendingUp />}
+          color="bg-indigo-500"
         />
       </div>
 

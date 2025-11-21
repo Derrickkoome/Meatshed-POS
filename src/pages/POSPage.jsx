@@ -2,6 +2,7 @@ import { useProducts } from '../contexts/ProductContext';
 import { useOrders } from '../contexts/OrderContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useCustomers } from '../contexts/CustomerContext';
+import { useDebts } from '../contexts/DebtContext';
 import { formatPrice } from '../utils/formatters';
 import { Search, ShoppingCart, Trash2, Loader, Plus, Minus } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -15,6 +16,7 @@ export default function POSPage() {
   const { createOrder } = useOrders();
   const { currentUser } = useAuth();
   const { findCustomerByPhone } = useCustomers();
+  const { createDebt } = useDebts();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -24,6 +26,9 @@ export default function POSPage() {
   const [customerPhone, setCustomerPhone] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [cartItems, setCartItems] = useState([]);
+  const [discountType, setDiscountType] = useState('none'); // 'none', 'percentage', 'fixed'
+  const [discountValue, setDiscountValue] = useState(0);
+  const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
   const [inventory, setInventory] = useState(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -103,6 +108,22 @@ export default function POSPage() {
     }, 0);
   };
 
+  // Calculate discount amount
+  const getDiscountAmount = () => {
+    const subtotal = getCartTotal();
+    if (discountType === 'percentage') {
+      return (subtotal * discountValue) / 100;
+    } else if (discountType === 'fixed') {
+      return Math.min(discountValue, subtotal); // Can't discount more than subtotal
+    }
+    return 0;
+  };
+
+  // Get final total after discount
+  const getFinalTotal = () => {
+    return Math.max(0, getCartTotal() - getDiscountAmount());
+  };
+
   const isInCart = (productId) => {
     return cartItems.some((item) => item.id === productId);
   };
@@ -137,6 +158,17 @@ export default function POSPage() {
       return;
     }
 
+    // Prevent double-clicking
+    if (isProcessingCheckout) {
+      return;
+    }
+
+    // For credit sales, customer info is required
+    if (paymentMethod === 'Credit' && !selectedCustomer) {
+      toast.error('Please select a customer for credit sales');
+      return;
+    }
+
     // Check stock availability
     for (const item of cartItems) {
       const product = products.find(p => p.id === item.id);
@@ -146,11 +178,14 @@ export default function POSPage() {
       }
     }
 
+    setIsProcessingCheckout(true);
     try {
-      // Calculate totals with tax-inclusive pricing
-      const total = getCartTotal();
-      const subtotal = total / 1.16;
-      const tax = total - subtotal;
+      // Calculate totals with discount
+      const cartTotal = getCartTotal();
+      const discountAmount = getDiscountAmount();
+      const finalTotal = getFinalTotal();
+      const subtotal = finalTotal / 1.16;
+      const tax = finalTotal - subtotal;
 
       // ✅ Ensure all quantities are NUMBERS (including decimals) in the order
       const order = {
@@ -161,16 +196,42 @@ export default function POSPage() {
         })),
         subtotal: parseFloat(subtotal.toFixed(2)),
         tax: parseFloat(tax.toFixed(2)),
-        total: parseFloat(total.toFixed(2)),
+        total: parseFloat(finalTotal.toFixed(2)),
+        ...(discountAmount > 0 && {
+          discount: {
+            type: discountType,
+            value: discountValue,
+            amount: parseFloat(discountAmount.toFixed(2))
+          }
+        }),
         paymentMethod,
         cashier: currentUser?.email || 'Guest',
         timestamp: new Date().toISOString(),
-        customerId: selectedCustomer?.id || null,
+        ...(selectedCustomer?.id && { customerId: selectedCustomer.id }),
         customerName: selectedCustomer?.name || 'Walk-in Customer',
-        customerPhone: selectedCustomer?.phone || null,
+        ...(selectedCustomer?.phone && { customerPhone: selectedCustomer.phone }),
       };
 
       const createdOrder = await createOrder(order);
+
+      // If payment method is Credit, create a debt record
+      if (paymentMethod === 'Credit') {
+        await createDebt({
+          customerName: selectedCustomer.name,
+          customerPhone: selectedCustomer.phone,
+          totalAmount: parseFloat(finalTotal.toFixed(2)),
+          items: cartItems.map(item => ({
+            productId: item.id,
+            productName: item.title,
+            quantity: parseFloat(item.quantity),
+            price: parseFloat(item.price),
+            total: parseFloat((item.price * item.quantity).toFixed(2))
+          })),
+          orderId: createdOrder.id,
+          cashier: currentUser?.email || 'Guest'
+        });
+        toast.success('Credit sale recorded');
+      }
 
       // Update stock for each item
       for (const item of cartItems) {
@@ -186,13 +247,17 @@ export default function POSPage() {
       setCompletedOrder(createdOrder);
       setShowReceipt(true);
 
-      // Clear cart and customer
+      // Clear cart, customer, and discount
       clearCart();
       setSelectedCustomer(null);
       setCustomerPhone('');
+      setDiscountType('none');
+      setDiscountValue(0);
     } catch (error) {
       console.error('Checkout error:', error);
       toast.error('Checkout failed. Please try again.');
+    } finally {
+      setIsProcessingCheckout(false);
     }
   };
 
@@ -305,15 +370,23 @@ export default function POSPage() {
               <>
                 <div className="border-t pt-4 mb-4">
                   <label className="block text-sm font-medium mb-2">
-                    Customer (Optional)
+                    Customer {paymentMethod === 'Credit' && <span className="text-red-600">*</span>}
+                    {paymentMethod === 'Credit' && (
+                      <span className="text-xs text-red-600 ml-1">(Required for credit)</span>
+                    )}
                   </label>
                   <div className="flex gap-2">
                     <input
                       type="tel"
                       value={customerPhone}
                       onChange={(e) => setCustomerPhone(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleCustomerSearch()}
                       placeholder="Enter phone number"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-meat focus:border-transparent text-sm"
+                      className={`flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-meat focus:border-transparent text-sm ${
+                        paymentMethod === 'Credit' && !selectedCustomer 
+                          ? 'border-red-300 bg-red-50' 
+                          : 'border-gray-300'
+                      }`}
                     />
                     <button
                       type="button"
@@ -326,9 +399,52 @@ export default function POSPage() {
                   {selectedCustomer && (
                     <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
                       <p className="text-sm font-semibold text-green-800">
-                        {selectedCustomer.name}
+                        ✓ {selectedCustomer.name}
                       </p>
                       <p className="text-xs text-green-600">{selectedCustomer.phone}</p>
+                    </div>
+                  )}
+                  {paymentMethod === 'Credit' && !selectedCustomer && customerPhone && (
+                    <p className="text-xs text-orange-600 mt-1">
+                      💡 Customer not found. You may need to add them first.
+                    </p>
+                  )}
+                </div>
+
+                {/* Discount Section */}
+                <div className="border-t pt-4 mb-4">
+                  <label className="block text-sm font-medium mb-2">
+                    Discount
+                  </label>
+                  <div className="flex gap-2 mb-2">
+                    <select
+                      value={discountType}
+                      onChange={(e) => {
+                        setDiscountType(e.target.value);
+                        setDiscountValue(0);
+                      }}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-meat focus:border-transparent text-sm"
+                    >
+                      <option value="none">No Discount</option>
+                      <option value="percentage">Percentage (%)</option>
+                      <option value="fixed">Fixed Amount (KSH)</option>
+                    </select>
+                  </div>
+                  {discountType !== 'none' && (
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="number"
+                        min="0"
+                        max={discountType === 'percentage' ? 100 : getCartTotal()}
+                        step={discountType === 'percentage' ? 1 : 0.01}
+                        value={discountValue}
+                        onChange={(e) => setDiscountValue(parseFloat(e.target.value) || 0)}
+                        placeholder={discountType === 'percentage' ? 'Enter %' : 'Enter amount'}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-meat focus:border-transparent text-sm"
+                      />
+                      <span className="text-sm font-semibold text-green-600">
+                        -{formatPrice(getDiscountAmount())}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -346,31 +462,57 @@ export default function POSPage() {
                     <option value="Cash">Cash</option>
                     <option value="Card">Card</option>
                     <option value="M-Pesa">M-Pesa</option>
+                    <option value="Credit">Credit (Pay Later)</option>
                   </select>
+                  {paymentMethod === 'Credit' && !selectedCustomer && (
+                    <p className="text-sm text-red-600 mt-2">
+                      ⚠️ Customer information required for credit sales
+                    </p>
+                  )}
                 </div>
 
                 {/* Totals */}
                 <div className="border-t pt-4 space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span>Subtotal (excl. tax):</span>
-                    <span>{formatPrice(getCartTotal() / 1.16)}</span>
+                    <span>Subtotal:</span>
+                    <span>{formatPrice(getCartTotal())}</span>
+                  </div>
+                  {getDiscountAmount() > 0 && (
+                    <div className="flex justify-between text-sm text-green-600 font-semibold">
+                      <span>Discount ({discountType === 'percentage' ? `${discountValue}%` : 'Fixed'}):</span>
+                      <span>-{formatPrice(getDiscountAmount())}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-sm">
+                    <span>Subtotal (after discount):</span>
+                    <span>{formatPrice(getFinalTotal() / 1.16)}</span>
                   </div>
                   <div className="flex justify-between text-sm text-gray-600">
                     <span>Tax (16%):</span>
-                    <span>{formatPrice(getCartTotal() - (getCartTotal() / 1.16))}</span>
+                    <span>{formatPrice(getFinalTotal() - (getFinalTotal() / 1.16))}</span>
                   </div>
                   <div className="flex justify-between items-center pt-2 border-t">
                     <span className="text-lg font-semibold">Total:</span>
                     <span className="text-2xl font-bold text-meat">
-                      {formatPrice(getCartTotal())}
+                      {formatPrice(getFinalTotal())}
                     </span>
                   </div>
 
                   <button 
                     onClick={handleCheckout}
-                    className="w-full btn-primary mt-4"
+                    disabled={isProcessingCheckout}
+                    className={`w-full btn-primary mt-4 flex items-center justify-center gap-2 ${
+                      isProcessingCheckout ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
                   >
-                    Complete Sale
+                    {isProcessingCheckout ? (
+                      <>
+                        <Loader className="animate-spin" size={20} />
+                        Processing...
+                      </>
+                    ) : (
+                      'Complete Sale'
+                    )}
                   </button>
                 </div>
               </>

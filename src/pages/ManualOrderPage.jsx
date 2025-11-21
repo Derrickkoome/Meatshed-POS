@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useProducts } from '../contexts/ProductContext';
 import { useOrders } from '../contexts/OrderContext';
+import { useAuth } from '../contexts/AuthContext';
 import { formatPrice } from '../utils/formatters';
 import { Calendar, Plus, Minus, Trash2, Save, ShoppingCart } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -8,6 +9,7 @@ import toast from 'react-hot-toast';
 export default function ManualOrderPage() {
   const { products } = useProducts();
   const { createOrder } = useOrders();
+  const { currentUser } = useAuth();
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedTime, setSelectedTime] = useState(new Date().toTimeString().slice(0, 5));
   const [cart, setCart] = useState([]);
@@ -74,6 +76,9 @@ export default function ManualOrderPage() {
     try {
       // Combine date and time to create a timestamp
       const orderDateTime = new Date(`${selectedDate}T${selectedTime}`);
+      const total = calculateTotal();
+      const subtotal = total / 1.16;
+      const tax = total - subtotal;
       
       const orderData = {
         items: cart.map(item => ({
@@ -81,11 +86,16 @@ export default function ManualOrderPage() {
           title: item.title,
           price: item.price,
           quantity: item.quantity,
-          image: item.image,
+          image: item.image || '',
+          stock: item.stock || 0
         })),
-        total: calculateTotal(),
+        subtotal: parseFloat(subtotal.toFixed(2)),
+        tax: parseFloat(tax.toFixed(2)),
+        total: parseFloat(total.toFixed(2)),
         paymentMethod,
+        cashier: currentUser?.email || 'Admin',
         timestamp: orderDateTime.toISOString(),
+        customerName: 'Walk-in Customer',
         isManualEntry: true,
       };
 

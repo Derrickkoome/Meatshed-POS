@@ -156,7 +156,8 @@ export default function OrderHistoryPage() {
                   <th className="text-left py-3 px-4">Customer</th>
                   <th className="text-left py-3 px-4">Date & Time</th>
                   <th className="text-left py-3 px-4">Items</th>
-                  <th className="text-left py-3 px-4">Payment</th>
+                  <th className="text-left py-3 px-4">Payment Method</th>
+                  <th className="text-left py-3 px-4">Discount</th>
                   <th className="text-right py-3 px-4">Total</th>
                   <th className="text-center py-3 px-4">Actions</th>
                 </tr>
@@ -188,7 +189,14 @@ export default function OrderHistoryPage() {
                         </div>
                       )}
                     </td>
-                    <td className="py-3 px-4 text-sm">{formatDate(order.timestamp)}</td>
+                    <td className="py-3 px-4">
+                      <div className="text-sm font-medium">{formatDate(order.timestamp)}</div>
+                      {order.isOnlineOrder && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          💳 Paid: {formatDate(order.timestamp)}
+                        </div>
+                      )}
+                    </td>
                     <td className="py-3 px-4">
                       <span className="text-sm">
                         {order.items.length} item{order.items.length > 1 ? 's' : ''}
@@ -203,8 +211,29 @@ export default function OrderHistoryPage() {
                         {order.paymentMethod}
                       </span>
                     </td>
+                    <td className="py-3 px-4">
+                      {order.discount ? (
+                        <div className="text-sm">
+                          <span className="font-semibold text-green-600">
+                            -{formatPrice(order.discount.amount)}
+                          </span>
+                          <div className="text-xs text-gray-500">
+                            {order.discount.type === 'percentage' 
+                              ? `${order.discount.value}% off` 
+                              : 'Fixed discount'}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-sm">-</span>
+                      )}
+                    </td>
                     <td className="py-3 px-4 text-right font-bold text-meat">
                       {formatPrice(order.total)}
+                      {order.discount && (
+                        <div className="text-xs text-gray-500 font-normal line-through">
+                          {formatPrice(order.total + order.discount.amount)}
+                        </div>
+                      )}
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center justify-center gap-2">

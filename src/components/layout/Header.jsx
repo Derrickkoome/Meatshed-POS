@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
-import { Menu, X, LayoutDashboard, ShoppingCart, Package, FileText, Truck, LogOut, ShoppingBag, User, Shield, Calendar } from 'lucide-react';
+import { Menu, X, LayoutDashboard, ShoppingCart, Package, FileText, Truck, LogOut, ShoppingBag, User, Shield, Calendar, CreditCard, Users } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { isAdmin } from '../../services/userService';
 import toast from 'react-hot-toast';
@@ -16,6 +16,8 @@ export default function Header() {
     { to: '/inventory', icon: Package, label: 'Inventory', adminOnly: true },
     { to: '/orders', icon: FileText, label: 'Order History' },
     { to: '/online-orders', icon: Truck, label: 'Online Orders' },
+    { to: '/debts', icon: CreditCard, label: 'Debts & Credit' },
+    { to: '/customers', icon: Users, label: 'Customers' },
     { to: '/manual-order', icon: Calendar, label: 'Manual Order Entry', adminOnly: true },
   ];
 
@@ -44,7 +46,7 @@ export default function Header() {
       <header className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-50 shadow-sm">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
-            <ShoppingBag className="text-meat" size={24} />
+            <img src="/logo.png" alt="MeatShed Logo" className="h-10 w-10 object-contain" />
             <h1 className="text-xl font-bold text-meat">MeatShed POS</h1>
           </div>
           
@@ -116,8 +118,8 @@ export default function Header() {
       <header className="hidden lg:block bg-meat text-white shadow-lg">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-2">
-              <ShoppingCart size={28} />
+            <Link to="/" className="flex items-center gap-3">
+              <img src="/logo.png" alt="MeatShed Logo" className="h-12 w-12 object-contain bg-white rounded-lg p-1" />
               <span className="text-xl font-bold">MeatShed POS</span>
             </Link>
             
@@ -136,6 +138,8 @@ export default function Header() {
                   )}
                   <Link to="/orders" className="hover:text-meat-light transition">Orders</Link>
                   <Link to="/online-orders" className="hover:text-meat-light transition">Online Orders</Link>
+                  <Link to="/debts" className="hover:text-meat-light transition">Debts</Link>
+                  <Link to="/customers" className="hover:text-meat-light transition">Customers</Link>
                 </>
               )}
             </nav>

@@ -138,11 +138,26 @@ export default function OnlineOrdersPage() {
   };
 
   const markAsPaid = async (order) => {
+    // Prompt for payment date
+    const paymentDate = prompt('Enter payment date (YYYY-MM-DD) or leave empty for today:');
+    let paymentTimestamp;
+    
+    if (paymentDate) {
+      const selectedDate = new Date(paymentDate);
+      if (isNaN(selectedDate.getTime())) {
+        toast.error('Invalid date format. Use YYYY-MM-DD');
+        return;
+      }
+      paymentTimestamp = selectedDate.toISOString();
+    } else {
+      paymentTimestamp = new Date().toISOString();
+    }
+
     try {
       // Update online order status
       await updateOrder(order.id, {
         status: 'paid',
-        paidAt: new Date().toISOString()
+        paidAt: paymentTimestamp
       });
 
       // Create a record in the main orders collection for accountability and receipts
@@ -167,19 +182,18 @@ export default function OnlineOrdersPage() {
         total,
         paymentMethod: 'Online Delivery', // Mark it as online delivery
         cashier: currentUser?.email || 'System',
-        timestamp: new Date().toISOString(),
-        customerId: null,
+        timestamp: paymentTimestamp, // Use the selected payment date
         customerName: order.customerName,
         customerPhone: order.customerPhone,
         // Add online order specific fields
         isOnlineOrder: true,
         onlineOrderId: order.id,
-        deliveryAddress: order.customerAddress,
-        deliveryDate: order.deliveryDate,
-        orderNotes: order.notes
+        ...(order.customerAddress && { deliveryAddress: order.customerAddress }),
+        ...(order.deliveryDate && { deliveryDate: order.deliveryDate }),
+        ...(order.notes && { orderNotes: order.notes })
       });
 
-      toast.success('Order marked as paid and added to order history');
+      toast.success(`Order marked as paid on ${new Date(paymentTimestamp).toLocaleDateString()}`);
     } catch (error) {
       console.error('Mark paid error:', error);
       toast.error('Failed to update order');

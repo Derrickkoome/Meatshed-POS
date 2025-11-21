@@ -1,10 +1,32 @@
 import { formatPrice, formatDate } from '../utils/formatters';
 import { Printer } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 
 export default function Receipt({ order, onClose }) {
+  const printedRef = useRef(false);
+
   const handlePrint = () => {
-    window.print();
+    if (!printedRef.current) {
+      printedRef.current = true;
+      window.print();
+      // Reset after a delay to allow printing again if needed
+      setTimeout(() => {
+        printedRef.current = false;
+      }, 1000);
+    }
   };
+
+  // Prevent infinite printing on page load
+  useEffect(() => {
+    const handleAfterPrint = () => {
+      printedRef.current = false;
+    };
+
+    window.addEventListener('afterprint', handleAfterPrint);
+    return () => {
+      window.removeEventListener('afterprint', handleAfterPrint);
+    };
+  }, []);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -22,9 +44,12 @@ export default function Receipt({ order, onClose }) {
           <div id="receipt-content" className="space-y-4">
             {/* Shop Header */}
             <div className="text-center border-b-2 border-dashed pb-4">
-              <h1 className="text-2xl font-bold text-meat">MeatShed POS</h1>
-              <p className="text-sm text-gray-600">Premium Quality Meats</p>
-              <p className="text-xs text-gray-500">Nairobi, Kenya</p>
+              <div className="flex justify-center mb-3">
+                <img src="/logo.png" alt="MeatShed Logo" className="h-20 w-20 object-contain" />
+              </div>
+              <h1 className="text-2xl font-bold text-meat">The MeatShed</h1>
+              <p className="text-sm text-gray-600 font-semibold">Where Meat Meets Mastery</p>
+              <p className="text-xs text-gray-500 mt-2">Nairobi, Kenya</p>
               <p className="text-xs text-gray-500">Tel: +254 700 000 000</p>
             </div>
 
@@ -86,10 +111,26 @@ export default function Receipt({ order, onClose }) {
                   <span>{formatPrice(order.tax)}</span>
                 </div>
               )}
+              {order.discount && (
+                <div className="flex justify-between text-sm text-green-600 font-semibold">
+                  <span>
+                    Discount ({order.discount.type === 'percentage' 
+                      ? `${order.discount.value}%` 
+                      : 'Fixed'}):
+                  </span>
+                  <span>-{formatPrice(order.discount.amount)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-lg font-bold border-t pt-2">
                 <span>TOTAL:</span>
                 <span className="text-meat">{formatPrice(order.total)}</span>
               </div>
+              {order.discount && (
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>Original Total:</span>
+                  <span className="line-through">{formatPrice(order.total + order.discount.amount)}</span>
+                </div>
+              )}
             </div>
 
             {/* Footer */}
