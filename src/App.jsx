@@ -7,6 +7,9 @@ import { CustomerProvider } from './contexts/CustomerContext';
 import { OnlineOrderProvider } from './contexts/OnlineOrderContext';
 import { DebtProvider } from './contexts/DebtContext';
 import { ExpenseProvider } from './contexts/ExpenseContext';
+import { WasteProvider } from './contexts/WasteContext';
+import { StockAdjustmentProvider } from './contexts/StockAdjustmentContext';
+import { ReconciliationProvider } from './contexts/ReconciliationContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import RoleGuard from './components/RoleGuard';
 import Header from './components/layout/Header';
@@ -22,6 +25,9 @@ import ManualOrderPage from './pages/ManualOrderPage';
 import DebtsPage from './pages/DebtsPage';
 import CustomersPage from './pages/CustomersPage';
 import ExpensesPage from './pages/ExpensesPage';
+import WasteManagementPage from './pages/WasteManagementPage';
+import StockAdjustmentPage from './pages/StockAdjustmentPage';
+import ReconciliationPage from './pages/ReconciliationPage';
 
 function App() {
   return (
@@ -32,8 +38,11 @@ function App() {
             <OnlineOrderProvider>
               <DebtProvider>
                 <ExpenseProvider>
-                  <Router>
-                  <Toaster position="top-right" />
+                  <WasteProvider>
+                    <StockAdjustmentProvider>
+                      <ReconciliationProvider>
+                        <Router>
+                      <Toaster position="top-right" />
                   <Routes>
                     <Route path="/" element={<HomePage />} />
                     <Route path="/login" element={<LoginPage />} />
@@ -78,6 +87,30 @@ function App() {
                                 } 
                               />
                               <Route 
+                                path="/waste" 
+                                element={
+                                  <RoleGuard requireAdmin={true}>
+                                    <WasteManagementPage />
+                                  </RoleGuard>
+                                } 
+                              />
+                              <Route 
+                                path="/stock-adjustments" 
+                                element={
+                                  <RoleGuard requireAdmin={true}>
+                                    <StockAdjustmentPage />
+                                  </RoleGuard>
+                                } 
+                              />
+                              <Route 
+                                path="/reconciliation" 
+                                element={
+                                  <RoleGuard requireAdmin={true}>
+                                    <ReconciliationPage />
+                                  </RoleGuard>
+                                } 
+                              />
+                              <Route 
                                 path="/manual-order" 
                                 element={
                                   <RoleGuard requireAdmin={true}>
@@ -92,7 +125,10 @@ function App() {
                     }
                   />
                 </Routes>
-              </Router>
+                        </Router>
+                      </ReconciliationProvider>
+                    </StockAdjustmentProvider>
+                  </WasteProvider>
                 </ExpenseProvider>
               </DebtProvider>
             </OnlineOrderProvider>

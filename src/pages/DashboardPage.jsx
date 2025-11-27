@@ -26,6 +26,10 @@ import {
   Sun,
   Sunset,
   Moon,
+  Users,
+  BarChart3,
+  Link as LinkIcon,
+  Target,
 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -38,6 +42,9 @@ export default function DashboardPage() {
   const [showLowStockModal, setShowLowStockModal] = useState(false);
   const [showPaymentBreakdownModal, setShowPaymentBreakdownModal] = useState(false);
   const [showPeakHoursModal, setShowPeakHoursModal] = useState(false);
+  const [showCombinationsModal, setShowCombinationsModal] = useState(false);
+  const [showForecastModal, setShowForecastModal] = useState(false);
+  const [showCashierModal, setShowCashierModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [revenueDate, setRevenueDate] = useState(new Date().toISOString().split('T')[0]);
   const [ordersDate, setOrdersDate] = useState(new Date().toISOString().split('T')[0]);
@@ -445,6 +452,203 @@ export default function DashboardPage() {
     }, 0);
   };
 
+  const getPeakHoursAnalysis = () => {
+    const hourlyData = {};
+    
+    // Initialize all 24 hours
+    for (let i = 0; i < 24; i++) {
+      hourlyData[i] = {
+        hour: i,
+        orders: 0,
+        revenue: 0,
+        items: 0,
+      };
+    }
+
+    // Aggregate order data by hour
+    orders.forEach(order => {
+      const date = new Date(order.timestamp);
+      const hour = date.getHours();
+      
+      hourlyData[hour].orders += 1;
+      hourlyData[hour].revenue += parseFloat(order.total) || 0;
+      hourlyData[hour].items += order.items?.length || 0;
+    });
+
+    const hourlyArray = Object.values(hourlyData);
+    
+    // Find peak hour
+    const peakHour = hourlyArray.reduce((max, curr) => 
+      curr.orders > max.orders ? curr : max
+    , hourlyArray[0]);
+
+    // Get time periods
+    const morning = hourlyArray.filter(h => h.hour >= 6 && h.hour < 12);
+    const afternoon = hourlyArray.filter(h => h.hour >= 12 && h.hour < 18);
+    const evening = hourlyArray.filter(h => h.hour >= 18 && h.hour < 24);
+    const night = hourlyArray.filter(h => h.hour >= 0 && h.hour < 6);
+
+    const sumPeriod = (period) => ({
+      orders: period.reduce((sum, h) => sum + h.orders, 0),
+      revenue: period.reduce((sum, h) => sum + h.revenue, 0),
+    });
+
+    return {
+      hourlyData: hourlyArray,
+      peakHour,
+      periods: {
+        morning: sumPeriod(morning),
+        afternoon: sumPeriod(afternoon),
+        evening: sumPeriod(evening),
+        night: sumPeriod(night),
+      },
+      busiestPeriod: (() => {
+        const periods = {
+          'Morning (6am-12pm)': sumPeriod(morning),
+          'Afternoon (12pm-6pm)': sumPeriod(afternoon),
+          'Evening (6pm-12am)': sumPeriod(evening),
+          'Night (12am-6am)': sumPeriod(night),
+        };
+        return Object.entries(periods).reduce((max, [name, data]) => 
+          data.orders > max.orders ? { name, ...data } : max
+        , { name: 'Morning (6am-12pm)', orders: 0, revenue: 0 });
+      })(),
+    };
+  };
+
+  const getProductCombinations = () => {
+    const combinations = {};
+    
+    orders.forEach(order => {
+      if (!order.items || order.items.length < 2) return;
+      
+      // Get all product pairs in this order
+      for (let i = 0; i < order.items.length; i++) {
+        for (let j = i + 1; j < order.items.length; j++) {
+          const product1 = order.items[i];
+          const product2 = order.items[j];
+          
+          // Create a consistent key (alphabetically sorted)
+          const ids = [product1.id, product2.id].sort();
+          const key = `${ids[0]}_${ids[1]}`;
+          
+          if (!combinations[key]) {
+            combinations[key] = {
+              product1: { id: product1.id, title: product1.title, image: product1.image },
+              product2: { id: product2.id, title: product2.title, image: product2.image },
+              count: 0,
+              revenue: 0,
+            };
+          }
+          
+          combinations[key].count += 1;
+          combinations[key].revenue += (parseFloat(product1.price) * product1.quantity) + 
+                                       (parseFloat(product2.price) * product2.quantity);
+        }
+      }
+    });
+    
+    return Object.values(combinations)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+  };
+
+  const getSalesForecast = () => {
+    const last30Days = [];
+    const today = new Date();
+    
+    // Get last 30 days of sales
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      date.setHours(0, 0, 0, 0);
+      const dateKey = date.toISOString().split('T')[0];
+      
+      const dayOrders = orders.filter(order => {
+        const orderDate = new Date(order.timestamp);
+        orderDate.setHours(0, 0, 0, 0);
+        return orderDate.toISOString().split('T')[0] === dateKey;
+      });
+      
+      const revenue = dayOrders.reduce((sum, order) => sum + (parseFloat(order.total) || 0), 0);
+      
+      last30Days.push({
+        date: dateKey,
+        revenue,
+        orders: dayOrders.length,
+      });
+    }
+    
+    // Calculate averages and trends
+    const avgDailyRevenue = last30Days.reduce((sum, day) => sum + day.revenue, 0) / 30;
+    const avgDailyOrders = last30Days.reduce((sum, day) => sum + day.orders, 0) / 30;
+    
+    // Calculate trend (simple linear regression)
+    const recentWeek = last30Days.slice(-7);
+    const previousWeek = last30Days.slice(-14, -7);
+    
+    const recentAvg = recentWeek.reduce((sum, day) => sum + day.revenue, 0) / 7;
+    const previousAvg = previousWeek.reduce((sum, day) => sum + day.revenue, 0) / 7;
+    
+    const trend = previousAvg > 0 ? ((recentAvg - previousAvg) / previousAvg) * 100 : 0;
+    
+    // Predict next 7 days
+    const predictions = [];
+    for (let i = 1; i <= 7; i++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() + i);
+      
+      // Simple prediction: average + trend
+      const predictedRevenue = avgDailyRevenue * (1 + (trend / 100));
+      const predictedOrders = Math.round(avgDailyOrders * (1 + (trend / 100)));
+      
+      predictions.push({
+        date: date.toISOString().split('T')[0],
+        dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        predictedRevenue,
+        predictedOrders,
+      });
+    }
+    
+    return {
+      last30Days,
+      avgDailyRevenue,
+      avgDailyOrders,
+      trend,
+      predictions,
+      totalRevenue30Days: last30Days.reduce((sum, day) => sum + day.revenue, 0),
+    };
+  };
+
+  const getCashierPerformance = () => {
+    const cashierStats = {};
+    
+    orders.forEach(order => {
+      const cashier = order.cashier || 'Unknown';
+      
+      if (!cashierStats[cashier]) {
+        cashierStats[cashier] = {
+          name: cashier,
+          orders: 0,
+          revenue: 0,
+          items: 0,
+          avgOrderValue: 0,
+        };
+      }
+      
+      cashierStats[cashier].orders += 1;
+      cashierStats[cashier].revenue += parseFloat(order.total) || 0;
+      cashierStats[cashier].items += order.items?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
+    });
+    
+    // Calculate averages
+    Object.values(cashierStats).forEach(stats => {
+      stats.avgOrderValue = stats.orders > 0 ? stats.revenue / stats.orders : 0;
+    });
+    
+    return Object.values(cashierStats).sort((a, b) => b.revenue - a.revenue);
+  };
+
   const topProducts = getTopSellingProducts();
   const topCategories = getTopSellingCategories();
   const lowStockProducts = getLowStockProducts();
@@ -452,6 +656,10 @@ export default function DashboardPage() {
   const last7DaysSales = getLast7DaysSales();
   const todayOrdersByCategory = getTodayOrdersByCategory();
   const selectedDateOrders = getOrdersByDateAndCategory(selectedDate);
+  const peakHoursData = getPeakHoursAnalysis();
+  const productCombinations = getProductCombinations();
+  const salesForecast = getSalesForecast();
+  const cashierPerformance = getCashierPerformance();
 
   // Calculate max sales for chart scaling
   const maxSales = Math.max(...last7DaysSales.map(d => d.sales), 1);
@@ -750,36 +958,171 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Recent Orders */}
-        <div className="card">
-          <h2 className="text-xl font-bold mb-4">Recent Orders</h2>
-          <div className="space-y-3">
-            {recentOrders.length > 0 ? (
-              recentOrders.map((order) => (
-                <div
-                  key={order.id}
-                  className="flex justify-between items-center p-3 bg-gray-50 rounded-lg"
-                >
-                  <div>
-                    <p className="font-semibold">
-                      Order #{order.id.slice(0, 8)}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {new Date(order.timestamp).toLocaleString()}
-                    </p>
+        {/* Peak Hours Analysis */}
+        <div 
+          className="card cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => setShowPeakHoursModal(true)}
+        >
+          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+            <Clock className="text-blue-600" />
+            Peak Hours Analysis
+          </h2>
+          <div className="space-y-4">
+            {/* Peak Hour */}
+            <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
+              <p className="text-sm text-gray-600 mb-1">Busiest Hour</p>
+              <p className="text-3xl font-bold text-blue-600">
+                {peakHoursData.peakHour.hour}:00 - {peakHoursData.peakHour.hour + 1}:00
+              </p>
+              <div className="mt-2 flex items-center justify-between text-sm">
+                <span className="text-gray-600">{peakHoursData.peakHour.orders} orders</span>
+                <span className="font-semibold text-blue-600">
+                  {formatPrice(peakHoursData.peakHour.revenue)}
+                </span>
+              </div>
+            </div>
+
+            {/* Busiest Period */}
+            <div className="bg-gradient-to-r from-orange-50 to-orange-100 p-4 rounded-lg border border-orange-200">
+              <p className="text-sm text-gray-600 mb-1">Busiest Period</p>
+              <p className="text-lg font-bold text-orange-600">
+                {peakHoursData.busiestPeriod.name}
+              </p>
+              <div className="mt-2 flex items-center justify-between text-sm">
+                <span className="text-gray-600">{peakHoursData.busiestPeriod.orders} orders</span>
+                <span className="font-semibold text-orange-600">
+                  {formatPrice(peakHoursData.busiestPeriod.revenue)}
+                </span>
+              </div>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-gray-50 p-3 rounded-lg text-center">
+                <Sun className="mx-auto text-yellow-500 mb-1" size={20} />
+                <p className="text-xs text-gray-600">Morning</p>
+                <p className="text-sm font-bold">{peakHoursData.periods.morning.orders}</p>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-lg text-center">
+                <Sunset className="mx-auto text-orange-500 mb-1" size={20} />
+                <p className="text-xs text-gray-600">Afternoon</p>
+                <p className="text-sm font-bold">{peakHoursData.periods.afternoon.orders}</p>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-lg text-center">
+                <Moon className="mx-auto text-indigo-500 mb-1" size={20} />
+                <p className="text-xs text-gray-600">Evening</p>
+                <p className="text-sm font-bold">{peakHoursData.periods.evening.orders}</p>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-lg text-center">
+                <Moon className="mx-auto text-gray-400 mb-1" size={20} />
+                <p className="text-xs text-gray-600">Night</p>
+                <p className="text-sm font-bold">{peakHoursData.periods.night.orders}</p>
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 mt-4 text-center">Click to view detailed breakdown</p>
+        </div>
+      </div>
+
+      {/* New Analytics Cards */}
+      <div className="grid lg:grid-cols-3 gap-6 mb-6">
+        {/* Product Combinations */}
+        <div 
+          className="card cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => setShowCombinationsModal(true)}
+        >
+          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+            <LinkIcon className="text-purple-600" />
+            Frequently Bought Together
+          </h2>
+          {productCombinations.length > 0 ? (
+            <div className="space-y-3">
+              {productCombinations.slice(0, 3).map((combo, index) => (
+                <div key={index} className="bg-purple-50 p-3 rounded-lg border border-purple-100">
+                  <div className="flex items-center gap-2 mb-2">
+                    <img src={combo.product1.image} alt={combo.product1.title} className="w-8 h-8 rounded object-cover" />
+                    <span className="text-xs text-gray-600">+</span>
+                    <img src={combo.product2.image} alt={combo.product2.title} className="w-8 h-8 rounded object-cover" />
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold text-meat">
-                      {formatPrice(order.total)}
-                    </p>
-                    <p className="text-sm text-gray-600">{order.paymentMethod}</p>
+                  <p className="text-xs text-gray-700 font-medium">{combo.product1.title} + {combo.product2.title}</p>
+                  <p className="text-xs text-purple-600 font-semibold mt-1">{combo.count} times together</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-sm">Not enough data yet</p>
+          )}
+          <p className="text-xs text-gray-500 mt-3 text-center">Click for full analysis</p>
+        </div>
+
+        {/* Sales Forecast */}
+        <div 
+          className="card cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => setShowForecastModal(true)}
+        >
+          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+            <Target className="text-indigo-600" />
+            Sales Forecast
+          </h2>
+          <div className="space-y-3">
+            <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-200">
+              <p className="text-sm text-gray-600 mb-1">Trend</p>
+              <div className="flex items-center gap-2">
+                {salesForecast.trend >= 0 ? (
+                  <ArrowUp className="text-green-600" size={24} />
+                ) : (
+                  <ArrowDown className="text-red-600" size={24} />
+                )}
+                <span className={`text-2xl font-bold ${salesForecast.trend >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {Math.abs(salesForecast.trend).toFixed(1)}%
+                </span>
+              </div>
+              <p className="text-xs text-gray-600 mt-1">vs previous week</p>
+            </div>
+            <div className="bg-gray-50 p-3 rounded-lg">
+              <p className="text-xs text-gray-600">Next 7 Days Forecast</p>
+              <p className="text-lg font-bold text-indigo-600">
+                {formatPrice(salesForecast.predictions.reduce((sum, p) => sum + p.predictedRevenue, 0))}
+              </p>
+              <p className="text-xs text-gray-600">{salesForecast.predictions.reduce((sum, p) => sum + p.predictedOrders, 0)} expected orders</p>
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 mt-3 text-center">Click for detailed forecast</p>
+        </div>
+
+        {/* Cashier Performance */}
+        <div 
+          className="card cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => setShowCashierModal(true)}
+        >
+          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+            <Users className="text-teal-600" />
+            Employee Performance
+          </h2>
+          {cashierPerformance.length > 0 ? (
+            <div className="space-y-2">
+              {cashierPerformance.slice(0, 3).map((cashier, index) => (
+                <div key={cashier.name} className="bg-teal-50 p-3 rounded-lg border border-teal-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold text-teal-300">#{index + 1}</span>
+                      <div>
+                        <p className="font-semibold text-sm">{cashier.name}</p>
+                        <p className="text-xs text-gray-600">{cashier.orders} orders</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-teal-600 text-sm">{formatPrice(cashier.revenue)}</p>
+                      <p className="text-xs text-gray-600">{formatPrice(cashier.avgOrderValue)} avg</p>
+                    </div>
                   </div>
                 </div>
-              ))
-            ) : (
-              <p className="text-gray-500 text-center py-4">No orders yet</p>
-            )}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-sm">No cashier data yet</p>
+          )}
+          <p className="text-xs text-gray-500 mt-3 text-center">Click for full report</p>
         </div>
       </div>
 
@@ -1438,6 +1781,486 @@ export default function DashboardPage() {
                   </>
                 );
               })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Peak Hours Modal */}
+      {showPeakHoursModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <Clock className="text-blue-500" />
+                Peak Hours Analysis
+              </h2>
+              <button
+                onClick={() => setShowPeakHoursModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1">
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-6">
+                  <Clock size={32} className="mb-3" />
+                  <p className="text-sm opacity-90 mb-1">Busiest Hour</p>
+                  <p className="text-3xl font-bold mb-2">
+                    {peakHoursData.peakHour.hour}:00
+                  </p>
+                  <div className="flex items-center justify-between text-sm border-t border-white/20 pt-3 mt-3">
+                    <span>{peakHoursData.peakHour.orders} orders</span>
+                    <span className="font-semibold">{formatPrice(peakHoursData.peakHour.revenue)}</span>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-xl p-6">
+                  <Sun size={32} className="mb-3" />
+                  <p className="text-sm opacity-90 mb-1">Busiest Period</p>
+                  <p className="text-xl font-bold mb-2">
+                    {peakHoursData.busiestPeriod.name}
+                  </p>
+                  <div className="flex items-center justify-between text-sm border-t border-white/20 pt-3 mt-3">
+                    <span>{peakHoursData.busiestPeriod.orders} orders</span>
+                    <span className="font-semibold">{formatPrice(peakHoursData.busiestPeriod.revenue)}</span>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl p-6">
+                  <TrendingUp size={32} className="mb-3" />
+                  <p className="text-sm opacity-90 mb-1">Total Orders</p>
+                  <p className="text-3xl font-bold mb-2">
+                    {orders.length}
+                  </p>
+                  <div className="flex items-center justify-between text-sm border-t border-white/20 pt-3 mt-3">
+                    <span>Analyzed</span>
+                    <span className="font-semibold">{formatPrice(stats.totalRevenue)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Time Period Breakdown */}
+              <div className="mb-8">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Performance by Time Period</h3>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-2 border-yellow-200 rounded-xl p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <Sun className="text-yellow-600" size={28} />
+                      <span className="text-xs font-semibold text-yellow-700 bg-yellow-200 px-2 py-1 rounded-full">
+                        6am - 12pm
+                      </span>
+                    </div>
+                    <h4 className="font-bold text-gray-900 mb-1">Morning</h4>
+                    <p className="text-2xl font-bold text-yellow-600 mb-2">
+                      {peakHoursData.periods.morning.orders}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      {formatPrice(peakHoursData.periods.morning.revenue)}
+                    </p>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-orange-50 to-orange-100 border-2 border-orange-200 rounded-xl p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <Sun className="text-orange-600" size={28} />
+                      <span className="text-xs font-semibold text-orange-700 bg-orange-200 px-2 py-1 rounded-full">
+                        12pm - 6pm
+                      </span>
+                    </div>
+                    <h4 className="font-bold text-gray-900 mb-1">Afternoon</h4>
+                    <p className="text-2xl font-bold text-orange-600 mb-2">
+                      {peakHoursData.periods.afternoon.orders}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      {formatPrice(peakHoursData.periods.afternoon.revenue)}
+                    </p>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-2 border-indigo-200 rounded-xl p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <Sunset className="text-indigo-600" size={28} />
+                      <span className="text-xs font-semibold text-indigo-700 bg-indigo-200 px-2 py-1 rounded-full">
+                        6pm - 12am
+                      </span>
+                    </div>
+                    <h4 className="font-bold text-gray-900 mb-1">Evening</h4>
+                    <p className="text-2xl font-bold text-indigo-600 mb-2">
+                      {peakHoursData.periods.evening.orders}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      {formatPrice(peakHoursData.periods.evening.revenue)}
+                    </p>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200 rounded-xl p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <Moon className="text-gray-600" size={28} />
+                      <span className="text-xs font-semibold text-gray-700 bg-gray-200 px-2 py-1 rounded-full">
+                        12am - 6am
+                      </span>
+                    </div>
+                    <h4 className="font-bold text-gray-900 mb-1">Night</h4>
+                    <p className="text-2xl font-bold text-gray-600 mb-2">
+                      {peakHoursData.periods.night.orders}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      {formatPrice(peakHoursData.periods.night.revenue)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Hourly Breakdown Table */}
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Hourly Breakdown</h3>
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Orders</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Revenue</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Avg Order</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Activity</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {peakHoursData.hourlyData
+                          .filter(h => h.orders > 0)
+                          .sort((a, b) => b.orders - a.orders)
+                          .map((hour) => {
+                            const avgOrder = hour.orders > 0 ? hour.revenue / hour.orders : 0;
+                            const maxOrders = Math.max(...peakHoursData.hourlyData.map(h => h.orders));
+                            const activityPercent = maxOrders > 0 ? (hour.orders / maxOrders) * 100 : 0;
+                            const isPeak = hour.hour === peakHoursData.peakHour.hour;
+                            
+                            return (
+                              <tr 
+                                key={hour.hour} 
+                                className={`hover:bg-gray-50 ${isPeak ? 'bg-blue-50' : ''}`}
+                              >
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="flex items-center gap-2">
+                                    <Clock size={16} className={isPeak ? 'text-blue-600' : 'text-gray-400'} />
+                                    <span className={`font-medium ${isPeak ? 'text-blue-600' : 'text-gray-900'}`}>
+                                      {hour.hour}:00 - {hour.hour + 1}:00
+                                    </span>
+                                    {isPeak && (
+                                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-semibold">
+                                        PEAK
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <span className="text-lg font-bold text-gray-900">{hour.orders}</span>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <span className="font-semibold text-green-600">
+                                    {formatPrice(hour.revenue)}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <span className="text-gray-600">{formatPrice(avgOrder)}</span>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-[150px]">
+                                      <div 
+                                        className={`h-2 rounded-full ${isPeak ? 'bg-blue-600' : 'bg-green-500'}`}
+                                        style={{ width: `${activityPercent}%` }}
+                                      ></div>
+                                    </div>
+                                    <span className="text-xs text-gray-500 w-12">
+                                      {activityPercent.toFixed(0)}%
+                                    </span>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {peakHoursData.hourlyData.filter(h => h.orders > 0).length === 0 && (
+                    <div className="text-center py-12">
+                      <Clock className="mx-auto text-gray-300 mb-4" size={64} />
+                      <p className="text-gray-500 text-lg">No order data available</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Insights */}
+              <div className="mt-8 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
+                <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                  <TrendingUp className="text-blue-600" size={20} />
+                  Business Insights
+                </h3>
+                <ul className="space-y-2 text-gray-700">
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-600 font-bold">•</span>
+                    <span>
+                      Your peak hour is <strong>{peakHoursData.peakHour.hour}:00 - {peakHoursData.peakHour.hour + 1}:00</strong> with {peakHoursData.peakHour.orders} orders
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-600 font-bold">•</span>
+                    <span>
+                      Most orders come during <strong>{peakHoursData.busiestPeriod.name}</strong>
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-600 font-bold">•</span>
+                    <span>
+                      Consider scheduling more staff during peak hours to handle demand
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-600 font-bold">•</span>
+                    <span>
+                      Run promotions during slow hours to boost sales
+                    </span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Product Combinations Modal */}
+      {showCombinationsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <LinkIcon className="text-purple-500" />
+                Frequently Bought Together
+              </h2>
+              <button
+                onClick={() => setShowCombinationsModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1">
+              {productCombinations.length > 0 ? (
+                <div className="space-y-4">
+                  {productCombinations.map((combo, index) => (
+                    <div key={index} className="bg-purple-50 border-2 border-purple-200 rounded-xl p-6">
+                      <div className="flex items-center gap-4 mb-4">
+                        <span className="text-3xl font-bold text-purple-300">#{index + 1}</span>
+                        <div className="flex items-center gap-3 flex-1">
+                          <div className="flex flex-col items-center">
+                            <img src={combo.product1.image} alt={combo.product1.title} className="w-20 h-20 rounded-lg object-cover border-2 border-white shadow" />
+                            <p className="text-sm font-semibold mt-2 text-center">{combo.product1.title}</p>
+                          </div>
+                          <div className="text-purple-600">
+                            <LinkIcon size={32} />
+                          </div>
+                          <div className="flex flex-col items-center">
+                            <img src={combo.product2.image} alt={combo.product2.title} className="w-20 h-20 rounded-lg object-cover border-2 border-white shadow" />
+                            <p className="text-sm font-semibold mt-2 text-center">{combo.product2.title}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-white rounded-lg p-4 grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-gray-600">Times Purchased Together</p>
+                          <p className="text-2xl font-bold text-purple-600">{combo.count}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600">Combined Revenue</p>
+                          <p className="text-2xl font-bold text-green-600">{formatPrice(combo.revenue)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <LinkIcon className="mx-auto text-gray-300 mb-4" size={64} />
+                  <p className="text-gray-500 text-lg">Not enough order data yet</p>
+                  <p className="text-gray-400 text-sm mt-2">Product combinations will appear after customers make orders with multiple items</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sales Forecast Modal */}
+      {showForecastModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <Target className="text-indigo-500" />
+                Sales Forecast & Trends
+              </h2>
+              <button
+                onClick={() => setShowForecastModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1">
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-xl p-5">
+                  <BarChart3 size={28} className="mb-2" />
+                  <p className="text-sm opacity-90 mb-1">30-Day Average</p>
+                  <p className="text-2xl font-bold">{formatPrice(salesForecast.avgDailyRevenue)}</p>
+                  <p className="text-xs opacity-75 mt-1">{Math.round(salesForecast.avgDailyOrders)} orders/day</p>
+                </div>
+                <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-5">
+                  <TrendingUp size={28} className="mb-2" />
+                  <p className="text-sm opacity-90 mb-1">Trend</p>
+                  <p className={`text-2xl font-bold ${salesForecast.trend >= 0 ? '' : 'text-red-200'}`}>
+                    {salesForecast.trend >= 0 ? '+' : ''}{salesForecast.trend.toFixed(1)}%
+                  </p>
+                  <p className="text-xs opacity-75 mt-1">vs previous week</p>
+                </div>
+                <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl p-5">
+                  <DollarSign size={28} className="mb-2" />
+                  <p className="text-sm opacity-90 mb-1">Last 30 Days</p>
+                  <p className="text-2xl font-bold">{formatPrice(salesForecast.totalRevenue30Days)}</p>
+                </div>
+                <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl p-5">
+                  <Target size={28} className="mb-2" />
+                  <p className="text-sm opacity-90 mb-1">Next 7 Days</p>
+                  <p className="text-2xl font-bold">
+                    {formatPrice(salesForecast.predictions.reduce((sum, p) => sum + p.predictedRevenue, 0))}
+                  </p>
+                </div>
+              </div>
+
+              {/* 7-Day Forecast */}
+              <div className="mb-8">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">7-Day Forecast</h3>
+                <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
+                  {salesForecast.predictions.map((day, index) => (
+                    <div key={index} className="bg-indigo-50 border-2 border-indigo-200 rounded-xl p-4 text-center">
+                      <p className="text-xs font-semibold text-gray-600 mb-1">{day.dayName}</p>
+                      <p className="text-sm text-gray-500 mb-2">{new Date(day.date).getDate()}</p>
+                      <p className="text-lg font-bold text-indigo-600">{formatPrice(day.predictedRevenue)}</p>
+                      <p className="text-xs text-gray-600 mt-1">{day.predictedOrders} orders</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Insights */}
+              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-6">
+                <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                  <TrendingUp className="text-indigo-600" size={20} />
+                  Forecast Insights
+                </h3>
+                <ul className="space-y-2 text-gray-700">
+                  <li className="flex items-start gap-2">
+                    <span className="text-indigo-600 font-bold">•</span>
+                    <span>
+                      Sales are trending <strong className={salesForecast.trend >= 0 ? 'text-green-600' : 'text-red-600'}>
+                        {salesForecast.trend >= 0 ? 'upward' : 'downward'}
+                      </strong> by {Math.abs(salesForecast.trend).toFixed(1)}% compared to last week
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-indigo-600 font-bold">•</span>
+                    <span>
+                      Expected revenue for next week: <strong>{formatPrice(salesForecast.predictions.reduce((sum, p) => sum + p.predictedRevenue, 0))}</strong>
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-indigo-600 font-bold">•</span>
+                    <span>
+                      Daily average: <strong>{formatPrice(salesForecast.avgDailyRevenue)}</strong> from {Math.round(salesForecast.avgDailyOrders)} orders
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-indigo-600 font-bold">•</span>
+                    <span>
+                      Plan inventory and staff based on predicted {salesForecast.predictions.reduce((sum, p) => sum + p.predictedOrders, 0)} orders next week
+                    </span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cashier Performance Modal */}
+      {showCashierModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <Users className="text-teal-500" />
+                Employee Performance
+              </h2>
+              <button
+                onClick={() => setShowCashierModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1">
+              {cashierPerformance.length > 0 ? (
+                <div className="space-y-4">
+                  {cashierPerformance.map((cashier, index) => (
+                    <div key={cashier.name} className="bg-gradient-to-r from-teal-50 to-teal-100 border-2 border-teal-200 rounded-xl p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-4">
+                          <span className="text-4xl font-bold text-teal-300">#{index + 1}</span>
+                          <div>
+                            <h3 className="text-xl font-bold text-gray-900">{cashier.name}</h3>
+                            <p className="text-sm text-gray-600">Cashier</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {index === 0 && <Award className="text-yellow-500" size={32} />}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="bg-white rounded-lg p-4">
+                          <p className="text-sm text-gray-600 mb-1">Total Orders</p>
+                          <p className="text-2xl font-bold text-teal-600">{cashier.orders}</p>
+                        </div>
+                        <div className="bg-white rounded-lg p-4">
+                          <p className="text-sm text-gray-600 mb-1">Total Revenue</p>
+                          <p className="text-2xl font-bold text-green-600">{formatPrice(cashier.revenue)}</p>
+                        </div>
+                        <div className="bg-white rounded-lg p-4">
+                          <p className="text-sm text-gray-600 mb-1">Avg Order Value</p>
+                          <p className="text-2xl font-bold text-blue-600">{formatPrice(cashier.avgOrderValue)}</p>
+                        </div>
+                        <div className="bg-white rounded-lg p-4">
+                          <p className="text-sm text-gray-600 mb-1">Items Sold</p>
+                          <p className="text-2xl font-bold text-purple-600">{cashier.items}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Users className="mx-auto text-gray-300 mb-4" size={64} />
+                  <p className="text-gray-500 text-lg">No cashier data available</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
-import { Menu, X, LayoutDashboard, ShoppingCart, Package, FileText, Truck, LogOut, ShoppingBag, User, Shield, Calendar, CreditCard, Users, TrendingDown } from 'lucide-react';
+import { Menu, X, LayoutDashboard, ShoppingCart, Package, FileText, Truck, LogOut, ShoppingBag, User, Shield, Calendar, CreditCard, Users, TrendingDown, Trash2, History, Calculator } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { isAdmin } from '../../services/userService';
 import toast from 'react-hot-toast';
@@ -19,6 +19,9 @@ export default function Header() {
     { to: '/debts', icon: CreditCard, label: 'Debts & Credit' },
     { to: '/customers', icon: Users, label: 'Customers' },
     { to: '/expenses', icon: TrendingDown, label: 'Expenses', adminOnly: true },
+    { to: '/waste', icon: Trash2, label: 'Waste Management', adminOnly: true },
+    { to: '/stock-adjustments', icon: History, label: 'Stock History', adminOnly: true },
+    { to: '/reconciliation', icon: Calculator, label: 'End of Day', adminOnly: true },
     { to: '/manual-order', icon: Calendar, label: 'Manual Order Entry', adminOnly: true },
   ];
 
