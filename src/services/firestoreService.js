@@ -155,6 +155,16 @@ export async function createOrder(orderData) {
   }
 }
 
+export async function deleteOrder(id) {
+  try {
+    const docRef = doc(db, ORDERS_COLLECTION, id);
+    await deleteDoc(docRef);
+  } catch (error) {
+    console.error('Error deleting order:', error);
+    throw error;
+  }
+}
+
 // ============== CUSTOMERS ==============
 
 export async function getCustomers() {

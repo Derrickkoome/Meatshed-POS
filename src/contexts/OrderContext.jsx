@@ -1,7 +1,8 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { 
   getOrders as getOrdersFromDB,
-  createOrder as createOrderInDB
+  createOrder as createOrderInDB,
+  deleteOrder as deleteOrderFromDB
 } from '../services/firestoreService';
 import toast from 'react-hot-toast';
 
@@ -76,6 +77,20 @@ const createOrder = async (orderData) => {
     });
   };
 
+  // Delete order (admin only)
+  const deleteOrder = async (orderId) => {
+    try {
+      await deleteOrderFromDB(orderId);
+      setOrders((prev) => prev.filter((order) => order.id !== orderId));
+      toast.success('Order deleted successfully');
+      return true;
+    } catch (error) {
+      console.error('Error deleting order:', error);
+      toast.error('Failed to delete order');
+      throw error;
+    }
+  };
+
   // Load orders on mount
   useEffect(() => {
     fetchOrders();
@@ -85,6 +100,7 @@ const createOrder = async (orderData) => {
     orders,
     loading,
     createOrder,
+    deleteOrder,
     getOrderById,
     getOrdersByDateRange,
     getTotalSales,

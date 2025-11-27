@@ -6,6 +6,7 @@ import { OrderProvider } from './contexts/OrderContext';
 import { CustomerProvider } from './contexts/CustomerContext';
 import { OnlineOrderProvider } from './contexts/OnlineOrderContext';
 import { DebtProvider } from './contexts/DebtContext';
+import { ExpenseProvider } from './contexts/ExpenseContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import RoleGuard from './components/RoleGuard';
 import Header from './components/layout/Header';
@@ -20,6 +21,7 @@ import OnlineOrdersPage from './pages/OnlineOrdersPage';
 import ManualOrderPage from './pages/ManualOrderPage';
 import DebtsPage from './pages/DebtsPage';
 import CustomersPage from './pages/CustomersPage';
+import ExpensesPage from './pages/ExpensesPage';
 
 function App() {
   return (
@@ -29,7 +31,8 @@ function App() {
           <OrderProvider>
             <OnlineOrderProvider>
               <DebtProvider>
-                <Router>
+                <ExpenseProvider>
+                  <Router>
                   <Toaster position="top-right" />
                   <Routes>
                     <Route path="/" element={<HomePage />} />
@@ -67,6 +70,14 @@ function App() {
                               <Route path="/debts" element={<DebtsPage />} />
                               <Route path="/customers" element={<CustomersPage />} />
                               <Route 
+                                path="/expenses" 
+                                element={
+                                  <RoleGuard requireAdmin={true}>
+                                    <ExpensesPage />
+                                  </RoleGuard>
+                                } 
+                              />
+                              <Route 
                                 path="/manual-order" 
                                 element={
                                   <RoleGuard requireAdmin={true}>
@@ -82,6 +93,7 @@ function App() {
                   />
                 </Routes>
               </Router>
+                </ExpenseProvider>
               </DebtProvider>
             </OnlineOrderProvider>
           </OrderProvider>

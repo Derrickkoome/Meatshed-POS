@@ -298,7 +298,7 @@ function ProductModal({ product, onClose, onSave, title }) {
       await onSave({
         title: formData.title,
         price: parseFloat(formData.price),
-        stock: parseInt(formData.stock),
+        stock: parseFloat(formData.stock),
         description: formData.description,
         thumbnail: formData.thumbnail,
         category: formData.category,
@@ -411,12 +411,13 @@ function ProductModal({ product, onClose, onSave, title }) {
               </label>
               <input
                 type="number"
+                step="0.1"
                 value={formData.stock}
                 onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-meat focus:border-transparent"
-                placeholder="100"
+                placeholder="100 or 2.5"
               />
-              <p className="text-xs text-gray-500 mt-1">Number of items in stock</p>
+              <p className="text-xs text-gray-500 mt-1">Quantity in stock (decimals allowed, e.g., 2.5 kg)</p>
             </div>
           </div>
 

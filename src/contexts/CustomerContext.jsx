@@ -3,6 +3,7 @@ import {
   getCustomers as getCustomersFromDB,
   addCustomer as addCustomerToDB,
   updateCustomer as updateCustomerInDB,
+  deleteCustomer as deleteCustomerFromDB,
   searchCustomerByPhone
 } from '../services/firestoreService';
 import toast from 'react-hot-toast';
@@ -75,6 +76,19 @@ export function CustomerProvider({ children }) {
     }
   };
 
+  // Delete customer
+  const deleteCustomer = async (customerId) => {
+    try {
+      await deleteCustomerFromDB(customerId);
+      setCustomers((prev) => prev.filter((c) => c.id !== customerId));
+      toast.success('Customer deleted successfully');
+    } catch (error) {
+      console.error('Error deleting customer:', error);
+      toast.error('Failed to delete customer');
+      throw error;
+    }
+  };
+
   // Get customer by ID
   const getCustomerById = (customerId) => {
     return customers.find((c) => c.id === customerId);
@@ -91,6 +105,7 @@ export function CustomerProvider({ children }) {
     fetchCustomers,
     addCustomer,
     updateCustomer,
+    deleteCustomer,
     findCustomerByPhone,
     getCustomerById,
   };

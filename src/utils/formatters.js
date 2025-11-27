@@ -33,21 +33,51 @@ export const calculateWeightPrice = (weight, pricePerKg) => {
 
 // Format date
 export const formatDate = (date) => {
-  return new Intl.DateTimeFormat('en-KE', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(date));
+  if (!date) return 'N/A';
+  
+  try {
+    // Handle Firestore Timestamp
+    const dateObj = date.toDate ? date.toDate() : new Date(date);
+    
+    // Check if date is valid
+    if (isNaN(dateObj.getTime())) {
+      return 'N/A';
+    }
+    
+    return new Intl.DateTimeFormat('en-KE', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(dateObj);
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return 'N/A';
+  }
 };
 
 // Format date for display (short version)
 export const formatDateShort = (date) => {
-  return new Intl.DateTimeFormat('en-KE', {
-    month: 'short',
-    day: 'numeric',
-  }).format(new Date(date));
+  if (!date) return 'N/A';
+  
+  try {
+    // Handle Firestore Timestamp
+    const dateObj = date.toDate ? date.toDate() : new Date(date);
+    
+    // Check if date is valid
+    if (isNaN(dateObj.getTime())) {
+      return 'N/A';
+    }
+    
+    return new Intl.DateTimeFormat('en-KE', {
+      month: 'short',
+      day: 'numeric',
+    }).format(dateObj);
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return 'N/A';
+  }
 };
 
 // Calculate cart total

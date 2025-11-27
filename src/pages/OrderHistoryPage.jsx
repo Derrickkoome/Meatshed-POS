@@ -1,8 +1,10 @@
 import { useOrders } from '../contexts/OrderContext';
+import { useAuth } from '../contexts/AuthContext';
 import { formatPrice, formatDate } from '../utils/formatters';
-import { Package, Calendar, DollarSign, FileText, Download, Truck } from 'lucide-react';
+import { Package, Calendar, DollarSign, FileText, Download, Truck, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import Receipt from '../components/Receipt';
+import { isAdmin } from '../services/userService';
 import { 
   exportOrdersToPDF, 
   exportOrdersToExcel,
@@ -11,10 +13,14 @@ import {
 } from '../utils/exportUtils';
 
 export default function OrderHistoryPage() {
-  const { orders, getTotalSales, getTodaysSales } = useOrders();
+  const { orders, getTotalSales, getTodaysSales, deleteOrder } = useOrders();
+  const { userProfile } = useAuth();
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showReceipt, setShowReceipt] = useState(false);
   const [filterType, setFilterType] = useState('all'); // 'all', 'walk-in', 'online'
+  const [deletingOrderId, setDeletingOrderId] = useState(null);
+
+  const isUserAdmin = isAdmin(userProfile);
 
   const todaysSales = getTodaysSales();
   const totalSales = getTotalSales();
@@ -34,9 +40,48 @@ export default function OrderHistoryPage() {
   const onlineTotal = onlineOrders.reduce((sum, o) => sum + o.total, 0);
   const walkInTotal = walkInOrders.reduce((sum, o) => sum + o.total, 0);
 
+  // Calculate delivery fees
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const todaysDeliveryFees = orders
+    .filter(order => {
+      const orderDate = new Date(order.timestamp);
+      orderDate.setHours(0, 0, 0, 0);
+      return orderDate.getTime() === today.getTime();
+    })
+    .reduce((sum, o) => sum + (parseFloat(o.deliveryCost) || 0), 0);
+  
+  const totalDeliveryFees = orders.reduce((sum, o) => sum + (parseFloat(o.deliveryCost) || 0), 0);
+  const ordersWithDelivery = orders.filter(o => o.deliveryCost > 0);
+  const todaysOrdersWithDelivery = orders.filter(order => {
+    const orderDate = new Date(order.timestamp);
+    orderDate.setHours(0, 0, 0, 0);
+    return orderDate.getTime() === today.getTime() && order.deliveryCost > 0;
+  });
+
   const handleViewReceipt = (order) => {
     setSelectedOrder(order);
     setShowReceipt(true);
+  };
+
+  const handleDeleteOrder = async (orderId) => {
+    if (!isUserAdmin) {
+      return;
+    }
+    
+    if (!window.confirm('Are you sure you want to delete this order? This action cannot be undone.')) {
+      return;
+    }
+
+    setDeletingOrderId(orderId);
+    try {
+      await deleteOrder(orderId);
+    } catch (error) {
+      console.error('Failed to delete order:', error);
+    } finally {
+      setDeletingOrderId(null);
+    }
   };
 
   return (
@@ -44,7 +89,7 @@ export default function OrderHistoryPage() {
       <h1 className="text-3xl font-bold mb-6">Order History</h1>
 
       {/* Stats Cards */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+      <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <StatsCard
           icon={<Package size={28} />}
           title="Total Orders"
@@ -78,6 +123,63 @@ export default function OrderHistoryPage() {
           subtitle="POS sales"
         />
       </div>
+
+      {/* Delivery Fees Cards */}
+      {totalDeliveryFees > 0 && (
+        <div className="grid md:grid-cols-2 gap-4 mb-8">
+          <div className="card bg-gradient-to-r from-teal-500 to-teal-600 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Truck size={24} />
+                  <p className="text-sm opacity-90">Today's Delivery Fees</p>
+                </div>
+                <p className="text-3xl font-bold mb-2">{formatPrice(todaysDeliveryFees)}</p>
+                <p className="text-sm opacity-75">
+                  {todaysOrdersWithDelivery.length} deliveries today
+                </p>
+              </div>
+              <div className="text-right">
+                <div className="bg-white/20 rounded-lg px-4 py-2">
+                  <p className="text-xs opacity-90">Average Fee</p>
+                  <p className="text-xl font-bold">
+                    {todaysOrdersWithDelivery.length > 0 
+                      ? formatPrice(todaysDeliveryFees / todaysOrdersWithDelivery.length)
+                      : formatPrice(0)
+                    }
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="card bg-gradient-to-r from-cyan-500 to-cyan-600 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <DollarSign size={24} />
+                  <p className="text-sm opacity-90">Total Delivery Fees (All Time)</p>
+                </div>
+                <p className="text-3xl font-bold mb-2">{formatPrice(totalDeliveryFees)}</p>
+                <p className="text-sm opacity-75">
+                  {ordersWithDelivery.length} total deliveries
+                </p>
+              </div>
+              <div className="text-right">
+                <div className="bg-white/20 rounded-lg px-4 py-2">
+                  <p className="text-xs opacity-90">Average Fee</p>
+                  <p className="text-xl font-bold">
+                    {ordersWithDelivery.length > 0 
+                      ? formatPrice(totalDeliveryFees / ordersWithDelivery.length)
+                      : formatPrice(0)
+                    }
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Orders List */}
       {orders.length === 0 ? (
@@ -157,6 +259,7 @@ export default function OrderHistoryPage() {
                   <th className="text-left py-3 px-4">Date & Time</th>
                   <th className="text-left py-3 px-4">Items</th>
                   <th className="text-left py-3 px-4">Payment Method</th>
+                  <th className="text-left py-3 px-4">Delivery Fee</th>
                   <th className="text-left py-3 px-4">Discount</th>
                   <th className="text-right py-3 px-4">Total</th>
                   <th className="text-center py-3 px-4">Actions</th>
@@ -212,6 +315,18 @@ export default function OrderHistoryPage() {
                       </span>
                     </td>
                     <td className="py-3 px-4">
+                      {order.deliveryCost > 0 ? (
+                        <div className="text-sm">
+                          <span className="font-semibold text-teal-600 flex items-center gap-1">
+                            <Truck size={14} />
+                            {formatPrice(order.deliveryCost)}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-sm">-</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4">
                       {order.discount ? (
                         <div className="text-sm">
                           <span className="font-semibold text-green-600">
@@ -258,6 +373,16 @@ export default function OrderHistoryPage() {
                         >
                           <FileText size={18} />
                         </button>
+                        {isUserAdmin && (
+                          <button
+                            onClick={() => handleDeleteOrder(order.id)}
+                            disabled={deletingOrderId === order.id}
+                            className="text-red-600 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Delete Order (Admin Only)"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

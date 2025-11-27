@@ -1,14 +1,26 @@
 import { useCustomers } from '../contexts/CustomerContext';
 import { formatDate } from '../utils/formatters';
-import { Users, Search, Plus, Edit, Phone, Mail, MapPin, Loader } from 'lucide-react';
+import { Users, Search, Plus, Edit, Phone, Mail, MapPin, Loader, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 
 export default function CustomersPage() {
-  const { customers, loading, addCustomer, updateCustomer } = useCustomers();
+  const { customers, loading, addCustomer, updateCustomer, deleteCustomer } = useCustomers();
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
+
+  const handleDeleteCustomer = async (customerId, customerName) => {
+    if (!window.confirm(`Are you sure you want to delete ${customerName}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await deleteCustomer(customerId);
+    } catch (error) {
+      console.error('Delete error:', error);
+    }
+  };
 
   const filteredCustomers = searchQuery
     ? customers.filter(
@@ -18,6 +30,11 @@ export default function CustomersPage() {
           c.email?.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : customers;
+
+  // Get top clients sorted by total purchases
+  const topClients = [...customers]
+    .sort((a, b) => (b.totalPurchases || 0) - (a.totalPurchases || 0))
+    .slice(0, 5);
 
   if (loading) {
     return (
@@ -60,6 +77,48 @@ export default function CustomersPage() {
         </div>
       </div>
 
+      {/* Top Clients Section */}
+      {topClients.length > 0 && (
+        <div className="card mb-6">
+          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+            <span className="text-yellow-500">⭐</span>
+            Top Clients
+          </h2>
+          <div className="space-y-3">
+            {topClients.map((client, index) => (
+              <div 
+                key={client.id} 
+                className="flex items-center justify-between p-3 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-yellow-500 text-white font-bold">
+                    {index + 1}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-meat text-white flex items-center justify-center text-xl font-bold">
+                      {client.name?.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg">{client.name}</h3>
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Phone size={14} />
+                        <span>{client.phone}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-meat">
+                    {client.totalPurchases || 0}
+                  </div>
+                  <div className="text-xs text-gray-600">Orders</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Search */}
       <div className="mb-6">
         <div className="relative max-w-md">
@@ -93,6 +152,7 @@ export default function CustomersPage() {
               key={customer.id}
               customer={customer}
               onEdit={setEditingCustomer}
+              onDelete={handleDeleteCustomer}
             />
           ))}
         </div>
@@ -120,7 +180,7 @@ export default function CustomersPage() {
   );
 }
 
-function CustomerCard({ customer, onEdit }) {
+function CustomerCard({ customer, onEdit, onDelete }) {
   return (
     <div className="card hover:shadow-xl transition-shadow">
       <div className="flex items-start justify-between mb-4">
@@ -131,16 +191,28 @@ function CustomerCard({ customer, onEdit }) {
           <div>
             <h3 className="font-bold text-lg">{customer.name}</h3>
             <p className="text-sm text-gray-500">
-              Member since {customer.createdAt ? formatDate(customer.createdAt) : 'N/A'}
+              {customer.createdAt && customer.createdAt.toDate 
+                ? `Member since ${formatDate(customer.createdAt)}` 
+                : 'New Customer'}
             </p>
           </div>
         </div>
-        <button
-          onClick={() => onEdit(customer)}
-          className="text-blue-600 hover:text-blue-700"
-        >
-          <Edit size={18} />
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => onEdit(customer)}
+            className="text-blue-600 hover:text-blue-700 p-1"
+            title="Edit customer"
+          >
+            <Edit size={18} />
+          </button>
+          <button
+            onClick={() => onDelete(customer.id, customer.name)}
+            className="text-red-600 hover:text-red-700 p-1"
+            title="Delete customer"
+          >
+            <Trash2 size={18} />
+          </button>
+        </div>
       </div>
 
       <div className="space-y-2">

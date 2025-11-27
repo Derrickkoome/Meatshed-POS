@@ -2,10 +2,13 @@ import { useProducts } from '../contexts/ProductContext';
 import { useOnlineOrders } from '../contexts/OnlineOrderContext';
 import { useOrders } from '../contexts/OrderContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useCustomers } from '../contexts/CustomerContext';
 import { formatPrice } from '../utils/formatters';
-import { Plus, Search, DollarSign, Package, XCircle, Edit2, Trash2, Loader } from 'lucide-react';
+import { Plus, Search, DollarSign, Package, XCircle, Edit2, Trash2, Loader, FileText } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import OnlineOrderReceipt from '../components/OnlineOrderReceipt';
+import PaymentMethodModal from '../components/PaymentMethodModal';
 
 export default function OnlineOrdersPage() {
   const { products, loading: productsLoading, updateProduct } = useProducts();
@@ -18,11 +21,17 @@ export default function OnlineOrdersPage() {
   } = useOnlineOrders();
   const { createOrder: createMainOrder } = useOrders();
   const { currentUser } = useAuth();
+  const { customers, findCustomerByPhone, addCustomer, updateCustomer: updateCustomerInDB } = useCustomers();
   
   const [showOrderForm, setShowOrderForm] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [autoPrintReceipt, setAutoPrintReceipt] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [orderToPay, setOrderToPay] = useState(null);
   
   const [orderForm, setOrderForm] = useState({
     customerName: '',
@@ -30,8 +39,12 @@ export default function OnlineOrdersPage() {
     customerAddress: '',
     items: [{ productId: '', productName: '', quantity: '', price: '', total: 0 }],
     deliveryDate: '',
+    deliveryCost: 0,
     notes: ''
   });
+
+  const [customerSuggestions, setCustomerSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   const addItemRow = () => {
     setOrderForm({
@@ -68,7 +81,67 @@ export default function OnlineOrdersPage() {
   };
 
   const calculateTotal = () => {
-    return orderForm.items.reduce((sum, item) => sum + (item.total || 0), 0);
+    const itemsTotal = orderForm.items.reduce((sum, item) => sum + (item.total || 0), 0);
+    return itemsTotal + parseFloat(orderForm.deliveryCost || 0);
+  };
+
+  // Handle customer phone input and search
+  const handlePhoneChange = (phone) => {
+    setOrderForm({...orderForm, customerPhone: phone});
+    
+    if (phone.length >= 10) {
+      const filtered = customers.filter(c => 
+        c.phone.includes(phone) || c.name?.toLowerCase().includes(phone.toLowerCase())
+      );
+      setCustomerSuggestions(filtered);
+      setShowSuggestions(filtered.length > 0);
+    } else {
+      setShowSuggestions(false);
+    }
+  };
+
+  // Select customer from suggestions
+  const selectCustomer = (customer) => {
+    setOrderForm({
+      ...orderForm,
+      customerName: customer.name,
+      customerPhone: customer.phone,
+      customerAddress: customer.address || ''
+    });
+    setShowSuggestions(false);
+  };
+
+  // Create or update customer record
+  const saveCustomerInfo = async (customerData) => {
+    try {
+      // Check if customer exists
+      const existingCustomer = await findCustomerByPhone(customerData.phone);
+      
+      if (existingCustomer) {
+        // Update total purchases
+        const newTotal = (existingCustomer.totalPurchases || 0) + 1;
+        await updateCustomerInDB(existingCustomer.id, {
+          name: customerData.name,
+          address: customerData.address || existingCustomer.address,
+          totalPurchases: newTotal,
+          lastOrderDate: new Date()
+        });
+      } else {
+        // Create new customer
+        await addCustomer({
+          name: customerData.name,
+          phone: customerData.phone,
+          address: customerData.address || '',
+          email: '',
+          totalPurchases: 1,
+          createdAt: new Date(),
+          lastOrderDate: new Date()
+        });
+      }
+    } catch (error) {
+      console.error('Error saving customer:', error);
+      // Don't fail the order if customer save fails
+    }
   };
 
   const saveOrder = async () => {
@@ -97,6 +170,13 @@ export default function OnlineOrdersPage() {
         });
         toast.success('Order updated successfully');
       } else {
+        // Save customer info first
+        await saveCustomerInfo({
+          name: orderForm.customerName,
+          phone: orderForm.customerPhone,
+          address: orderForm.customerAddress
+        });
+
         // Create new order and deduct from inventory
         await createOrder({
           ...orderForm,
@@ -114,7 +194,21 @@ export default function OnlineOrdersPage() {
             });
           }
         }
-        toast.success('Order created successfully');
+        
+        // Get the created order and show receipt with auto-print
+        const createdOrderData = {
+          id: Date.now().toString(), // Temporary ID, will be replaced by actual order ID
+          ...orderForm,
+          totalAmount,
+          status: 'pending',
+          createdAt: new Date().toISOString()
+        };
+        
+        setSelectedOrder(createdOrderData);
+        setAutoPrintReceipt(true);
+        setShowReceipt(true);
+        
+        toast.success('Order created successfully - Receipt will print automatically');
       }
 
       resetForm();
@@ -131,21 +225,28 @@ export default function OnlineOrdersPage() {
       customerAddress: '',
       items: [{ productId: '', productName: '', quantity: '', price: '', total: 0 }],
       deliveryDate: '',
+      deliveryCost: 0,
       notes: ''
     });
     setShowOrderForm(false);
     setEditingOrder(null);
   };
 
-  const markAsPaid = async (order) => {
-    // Prompt for payment date
-    const paymentDate = prompt('Enter payment date (YYYY-MM-DD) or leave empty for today:');
+  const markAsPaid = (order) => {
+    setOrderToPay(order);
+    setShowPaymentModal(true);
+  };
+
+  const handlePaymentConfirm = async (paymentDetails, paymentDate) => {
+    const order = orderToPay;
+    setShowPaymentModal(false);
+    setOrderToPay(null);
+
     let paymentTimestamp;
-    
     if (paymentDate) {
       const selectedDate = new Date(paymentDate);
       if (isNaN(selectedDate.getTime())) {
-        toast.error('Invalid date format. Use YYYY-MM-DD');
+        toast.error('Invalid date format');
         return;
       }
       paymentTimestamp = selectedDate.toISOString();
@@ -175,16 +276,23 @@ export default function OnlineOrdersPage() {
         stock: products.find(p => p.id.toString() === item.productId)?.stock || 0
       }));
 
+      // Determine payment method for display
+      const paymentMethodDisplay = paymentDetails.isSplit 
+        ? 'Split Payment' 
+        : paymentDetails.method || 'Online Delivery';
+
       await createMainOrder({
         items: orderItems,
         subtotal,
         tax,
         total,
-        paymentMethod: 'Online Delivery', // Mark it as online delivery
+        paymentMethod: paymentMethodDisplay,
+        ...(paymentDetails && { paymentDetails }), // Add payment details
         cashier: currentUser?.email || 'System',
         timestamp: paymentTimestamp, // Use the selected payment date
         customerName: order.customerName,
         customerPhone: order.customerPhone,
+        deliveryCost: parseFloat(order.deliveryCost) || 0, // Add delivery cost
         // Add online order specific fields
         isOnlineOrder: true,
         onlineOrderId: order.id,
@@ -378,17 +486,36 @@ export default function OnlineOrdersPage() {
                       placeholder="Enter customer name"
                     />
                   </div>
-                  <div>
+                  <div className="relative">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Phone Number *
                     </label>
                     <input
                       type="tel"
                       value={orderForm.customerPhone}
-                      onChange={(e) => setOrderForm({...orderForm, customerPhone: e.target.value})}
+                      onChange={(e) => handlePhoneChange(e.target.value)}
+                      onFocus={() => orderForm.customerPhone.length >= 10 && setShowSuggestions(true)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-meat focus:border-transparent"
                       placeholder="0712345678"
                     />
+                    {showSuggestions && customerSuggestions.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        {customerSuggestions.map((customer) => (
+                          <button
+                            key={customer.id}
+                            type="button"
+                            onClick={() => selectCustomer(customer)}
+                            className="w-full px-4 py-2 text-left hover:bg-gray-100 border-b last:border-b-0"
+                          >
+                            <div className="font-semibold text-gray-900">{customer.name}</div>
+                            <div className="text-sm text-gray-600">{customer.phone}</div>
+                            {customer.address && (
+                              <div className="text-xs text-gray-500">{customer.address}</div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -412,6 +539,25 @@ export default function OnlineOrdersPage() {
                       onChange={(e) => setOrderForm({...orderForm, deliveryDate: e.target.value})}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-meat focus:border-transparent"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Delivery Cost (Optional)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={orderForm.deliveryCost}
+                      onChange={(e) => setOrderForm({...orderForm, deliveryCost: parseFloat(e.target.value) || 0})}
+                      placeholder="Enter delivery cost"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-meat focus:border-transparent"
+                    />
+                    {orderForm.deliveryCost > 0 && (
+                      <p className="text-xs text-blue-600 mt-1">
+                        +{formatPrice(orderForm.deliveryCost)}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -562,6 +708,16 @@ export default function OnlineOrdersPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedOrder(order);
+                            setShowReceipt(true);
+                          }}
+                          className="text-purple-600 hover:text-purple-800 p-1"
+                          title="View Receipt"
+                        >
+                          <FileText size={18} />
+                        </button>
                         {order.status === 'pending' && (
                           <>
                             <button
@@ -603,6 +759,31 @@ export default function OnlineOrdersPage() {
           </div>
         )}
       </div>
+
+      {/* Payment Method Modal */}
+      {showPaymentModal && orderToPay && (
+        <PaymentMethodModal
+          totalAmount={orderToPay.totalAmount}
+          onConfirm={handlePaymentConfirm}
+          onCancel={() => {
+            setShowPaymentModal(false);
+            setOrderToPay(null);
+          }}
+        />
+      )}
+
+      {/* Receipt Modal */}
+      {showReceipt && selectedOrder && (
+        <OnlineOrderReceipt 
+          order={selectedOrder} 
+          autoPrint={autoPrintReceipt}
+          onClose={() => {
+            setShowReceipt(false);
+            setSelectedOrder(null);
+            setAutoPrintReceipt(false);
+          }} 
+        />
+      )}
     </div>
   );
 }

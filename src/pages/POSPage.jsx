@@ -7,6 +7,8 @@ import { formatPrice } from '../utils/formatters';
 import { Search, ShoppingCart, Trash2, Loader, Plus, Minus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Receipt from '../components/Receipt';
+import PaymentModal from '../components/PaymentModal';
+import SplitPaymentModal from '../components/SplitPaymentModal';
 import toast from 'react-hot-toast';
 
 const STORAGE_KEY = 'meatshed:inventory';
@@ -22,12 +24,14 @@ export default function POSPage() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [completedOrder, setCompletedOrder] = useState(null);
   const [showReceipt, setShowReceipt] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerPhone, setCustomerPhone] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [cartItems, setCartItems] = useState([]);
   const [discountType, setDiscountType] = useState('none'); // 'none', 'percentage', 'fixed'
   const [discountValue, setDiscountValue] = useState(0);
+  const [deliveryCost, setDeliveryCost] = useState(0);
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
   const [inventory, setInventory] = useState(() => {
     try {
@@ -119,9 +123,10 @@ export default function POSPage() {
     return 0;
   };
 
-  // Get final total after discount
+  // Get final total after discount and delivery
   const getFinalTotal = () => {
-    return Math.max(0, getCartTotal() - getDiscountAmount());
+    const afterDiscount = Math.max(0, getCartTotal() - getDiscountAmount());
+    return afterDiscount + parseFloat(deliveryCost || 0);
   };
 
   const isInCart = (productId) => {
@@ -153,7 +158,7 @@ export default function POSPage() {
     }
   };
 
-  const handleCheckout = async () => {
+  const handleCheckout = () => {
     if (cartItems.length === 0) {
       return;
     }
@@ -177,6 +182,13 @@ export default function POSPage() {
         return;
       }
     }
+
+    // Show payment modal
+    setShowPaymentModal(true);
+  };
+
+  const handlePaymentConfirm = async (paymentDetails) => {
+    setShowPaymentModal(false);
 
     setIsProcessingCheckout(true);
     try {
@@ -204,7 +216,11 @@ export default function POSPage() {
             amount: parseFloat(discountAmount.toFixed(2))
           }
         }),
+        ...(deliveryCost > 0 && {
+          deliveryCost: parseFloat(deliveryCost)
+        }),
         paymentMethod,
+        ...(paymentDetails && { paymentDetails }), // Add payment details (cash amount, change)
         cashier: currentUser?.email || 'Guest',
         timestamp: new Date().toISOString(),
         ...(selectedCustomer?.id && { customerId: selectedCustomer.id }),
@@ -253,6 +269,7 @@ export default function POSPage() {
       setCustomerPhone('');
       setDiscountType('none');
       setDiscountValue(0);
+      setDeliveryCost(0);
     } catch (error) {
       console.error('Checkout error:', error);
       toast.error('Checkout failed. Please try again.');
@@ -449,6 +466,29 @@ export default function POSPage() {
                   )}
                 </div>
 
+                {/* Delivery Cost Section */}
+                <div className="border-t pt-4 mb-4">
+                  <label className="block text-sm font-medium mb-2">
+                    Delivery Cost (Optional)
+                  </label>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={deliveryCost}
+                      onChange={(e) => setDeliveryCost(parseFloat(e.target.value) || 0)}
+                      placeholder="Enter delivery cost"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-meat focus:border-transparent text-sm"
+                    />
+                    {deliveryCost > 0 && (
+                      <span className="text-sm font-semibold text-blue-600">
+                        +{formatPrice(deliveryCost)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
                 {/* Payment Method */}
                 <div className="border-t pt-4 mb-4">
                   <label className="block text-sm font-medium mb-2">
@@ -462,6 +502,7 @@ export default function POSPage() {
                     <option value="Cash">Cash</option>
                     <option value="Card">Card</option>
                     <option value="M-Pesa">M-Pesa</option>
+                    <option value="Split Payment">Split Payment (Multiple Methods)</option>
                     <option value="Credit">Credit (Pay Later)</option>
                   </select>
                   {paymentMethod === 'Credit' && !selectedCustomer && (
@@ -481,6 +522,12 @@ export default function POSPage() {
                     <div className="flex justify-between text-sm text-green-600 font-semibold">
                       <span>Discount ({discountType === 'percentage' ? `${discountValue}%` : 'Fixed'}):</span>
                       <span>-{formatPrice(getDiscountAmount())}</span>
+                    </div>
+                  )}
+                  {deliveryCost > 0 && (
+                    <div className="flex justify-between text-sm text-blue-600 font-semibold">
+                      <span>Delivery Cost:</span>
+                      <span>+{formatPrice(deliveryCost)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-sm">
@@ -520,6 +567,24 @@ export default function POSPage() {
           </div>
         </div>
       </div>
+
+      {/* Payment Modal */}
+      {showPaymentModal && (
+        paymentMethod === 'Split Payment' ? (
+          <SplitPaymentModal
+            totalAmount={getFinalTotal()}
+            onConfirm={handlePaymentConfirm}
+            onCancel={() => setShowPaymentModal(false)}
+          />
+        ) : (
+          <PaymentModal
+            totalAmount={getFinalTotal()}
+            paymentMethod={paymentMethod}
+            onConfirm={handlePaymentConfirm}
+            onCancel={() => setShowPaymentModal(false)}
+          />
+        )
+      )}
 
       {/* Receipt Modal */}
       {showReceipt && completedOrder && (

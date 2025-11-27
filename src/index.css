@@ -33,25 +33,108 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   opacity: 1;
 }
 
-/* Print Styles */
+/* Print Styles - Optimized for X-POS XP-80 Thermal Printer (80mm) */
 @media print {
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+  
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+  
   body * {
     visibility: hidden;
   }
   
   #receipt-content,
-  #receipt-content * {
+  #receipt-content *,
+  #online-receipt-content,
+  #online-receipt-content * {
     visibility: visible;
   }
   
-  #receipt-content {
+  #receipt-content,
+  #online-receipt-content {
     position: absolute;
     left: 0;
     top: 0;
-    width: 100%;
+    width: 80mm;
+    padding: 5mm 3mm;
+    padding-bottom: 20mm;
+    font-size: 12px;
+    line-height: 1.4;
+    font-family: 'Courier New', 'Lucida Console', monospace;
+    color: #000;
+    background: #fff;
+    page-break-after: always;
   }
-  
-  .print\:hidden {
-    display: none !important;
+
+  /* Ensure proper text rendering for thermal printer */
+  #receipt-content *,
+  #online-receipt-content * {
+    font-family: 'Courier New', 'Lucida Console', monospace;
+    color: #000 !important;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+
+  /* Enhance important elements for better thermal printing */
+  #receipt-content h1,
+  #online-receipt-content h1 {
+    font-size: 16px;
+    font-weight: bold;
+    margin: 2mm 0;
+  }
+
+  #receipt-content .text-xs,
+  #online-receipt-content .text-xs {
+    font-size: 12px !important;
+  }
+
+  #receipt-content .text-sm,
+  #online-receipt-content .text-sm {
+    font-size: 13px !important;
+  }
+
+  #receipt-content .text-base,
+  #online-receipt-content .text-base {
+    font-size: 14px !important;
+  }
+
+  #receipt-content .font-bold,
+  #online-receipt-content .font-bold {
+    font-weight: bold;
+  }
+
+  #receipt-content .break-words,
+  #online-receipt-content .break-words {
+    word-break: break-word;
+  }
+
+  /* Remove shadows and transitions for print */
+  #receipt-content *,
+  #online-receipt-content * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    transition: none !important;
+  }
+
+  /* Ensure borders print correctly */
+  #receipt-content .border-b,
+  #receipt-content .border-t,
+  #online-receipt-content .border-b,
+  #online-receipt-content .border-t {
+    border-color: #000 !important;
+  }
+
+  /* Optimize image printing for logo */
+  #receipt-content img,
+  #online-receipt-content img {
+    max-width: 100%;
+    height: auto;
   }
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
-import { Menu, X, LayoutDashboard, ShoppingCart, Package, FileText, Truck, LogOut, ShoppingBag, User, Shield, Calendar, CreditCard, Users } from 'lucide-react';
+import { Menu, X, LayoutDashboard, ShoppingCart, Package, FileText, Truck, LogOut, ShoppingBag, User, Shield, Calendar, CreditCard, Users, TrendingDown } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { isAdmin } from '../../services/userService';
 import toast from 'react-hot-toast';
@@ -18,6 +18,7 @@ export default function Header() {
     { to: '/online-orders', icon: Truck, label: 'Online Orders' },
     { to: '/debts', icon: CreditCard, label: 'Debts & Credit' },
     { to: '/customers', icon: Users, label: 'Customers' },
+    { to: '/expenses', icon: TrendingDown, label: 'Expenses', adminOnly: true },
     { to: '/manual-order', icon: Calendar, label: 'Manual Order Entry', adminOnly: true },
   ];
 
@@ -140,6 +141,9 @@ export default function Header() {
                   <Link to="/online-orders" className="hover:text-meat-light transition">Online Orders</Link>
                   <Link to="/debts" className="hover:text-meat-light transition">Debts</Link>
                   <Link to="/customers" className="hover:text-meat-light transition">Customers</Link>
+                  {isAdmin(userProfile) && (
+                    <Link to="/expenses" className="hover:text-meat-light transition">Expenses</Link>
+                  )}
                 </>
               )}
             </nav>

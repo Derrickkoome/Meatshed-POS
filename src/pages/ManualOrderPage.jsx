@@ -14,6 +14,7 @@ export default function ManualOrderPage() {
   const [selectedTime, setSelectedTime] = useState(new Date().toTimeString().slice(0, 5));
   const [cart, setCart] = useState([]);
   const [paymentMethod, setPaymentMethod] = useState('Cash');
+  const [deliveryCost, setDeliveryCost] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredProducts = products.filter(product =>
@@ -59,7 +60,8 @@ export default function ManualOrderPage() {
   };
 
   const calculateTotal = () => {
-    return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    return cartTotal + parseFloat(deliveryCost || 0);
   };
 
   const handleSubmitOrder = async () => {
@@ -92,6 +94,9 @@ export default function ManualOrderPage() {
         subtotal: parseFloat(subtotal.toFixed(2)),
         tax: parseFloat(tax.toFixed(2)),
         total: parseFloat(total.toFixed(2)),
+        ...(deliveryCost > 0 && {
+          deliveryCost: parseFloat(deliveryCost)
+        }),
         paymentMethod,
         cashier: currentUser?.email || 'Admin',
         timestamp: orderDateTime.toISOString(),
@@ -106,6 +111,7 @@ export default function ManualOrderPage() {
       setSelectedDate(new Date().toISOString().split('T')[0]);
       setSelectedTime(new Date().toTimeString().slice(0, 5));
       setPaymentMethod('Cash');
+      setDeliveryCost(0);
     } catch (error) {
       console.error('Error adding manual order:', error);
       toast.error('Failed to add order. Please check your internet connection.');
@@ -208,6 +214,27 @@ export default function ManualOrderPage() {
                 <option value="Card">Card</option>
                 <option value="Bank Transfer">Bank Transfer</option>
               </select>
+            </div>
+
+            {/* Delivery Cost */}
+            <div className="mb-4">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Delivery Cost (Optional)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={deliveryCost}
+                onChange={(e) => setDeliveryCost(parseFloat(e.target.value) || 0)}
+                placeholder="Enter delivery cost"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-meat focus:border-transparent"
+              />
+              {deliveryCost > 0 && (
+                <p className="text-xs text-blue-600 mt-1">
+                  +{formatPrice(deliveryCost)}
+                </p>
+              )}
             </div>
 
             {/* Cart Items */}
