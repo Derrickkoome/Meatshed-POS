@@ -1,3 +1,12 @@
+import ProfitLossPage from './pages/ProfitLossPage';
+                              <Route 
+                                path="/profit-loss" 
+                                element={
+                                  <RoleGuard requireAdmin={true}>
+                                    <ProfitLossPage />
+                                  </RoleGuard>
+                                } 
+                              />
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './contexts/AuthContext';

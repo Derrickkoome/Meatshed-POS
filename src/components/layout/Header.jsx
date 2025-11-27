@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import DarkModeToggle from '../DarkModeToggle';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { Menu, X, LayoutDashboard, ShoppingCart, Package, FileText, Truck, LogOut, ShoppingBag, User, Shield, Calendar, CreditCard, Users, TrendingDown, Trash2, History, Calculator } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -23,6 +24,7 @@ export default function Header() {
     { to: '/stock-adjustments', icon: History, label: 'Stock History', adminOnly: true },
     { to: '/reconciliation', icon: Calculator, label: 'End of Day', adminOnly: true },
     { to: '/manual-order', icon: Calendar, label: 'Manual Order Entry', adminOnly: true },
+    { to: '/profit-loss', icon: FileText, label: 'Profit & Loss', adminOnly: true },
   ];
 
   const filteredNavItems = navItems.filter(item => {
@@ -78,7 +80,10 @@ export default function Header() {
           isMenuOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0 overflow-hidden'
         }`}
       >
-        <nav className="px-4 py-2">
+        <nav className="px-4 py-2 flex flex-col gap-2">
+          <div className="flex justify-end mb-2">
+            <DarkModeToggle />
+          </div>
           {currentUser && (
             <div className="px-4 py-3 mb-2 bg-gray-50 rounded-lg">
               <p className="text-sm text-gray-600 truncate">{currentUser.email}</p>
@@ -131,22 +136,19 @@ export default function Header() {
               {currentUser && (
                 <>
                   {isAdmin(userProfile) && (
-                    <Link to="/dashboard" className="hover:text-meat-light transition">Dashboard</Link>
-                  )}
-                  <Link to="/pos" className="hover:text-meat-light transition">POS</Link>
-                  {isAdmin(userProfile) && (
                     <>
+                      <Link to="/dashboard" className="hover:text-meat-light transition">Dashboard</Link>
                       <Link to="/inventory" className="hover:text-meat-light transition">Inventory</Link>
                       <Link to="/manual-order" className="hover:text-meat-light transition">Manual Entry</Link>
+                      <Link to="/reconciliation" className="hover:text-meat-light transition">End of Day</Link>
+                      <Link to="/expenses" className="hover:text-meat-light transition">Expenses</Link>
                     </>
                   )}
+                  <Link to="/pos" className="hover:text-meat-light transition">POS</Link>
                   <Link to="/orders" className="hover:text-meat-light transition">Orders</Link>
                   <Link to="/online-orders" className="hover:text-meat-light transition">Online Orders</Link>
                   <Link to="/debts" className="hover:text-meat-light transition">Debts</Link>
                   <Link to="/customers" className="hover:text-meat-light transition">Customers</Link>
-                  {isAdmin(userProfile) && (
-                    <Link to="/expenses" className="hover:text-meat-light transition">Expenses</Link>
-                  )}
                 </>
               )}
             </nav>
@@ -165,6 +167,7 @@ export default function Header() {
                       </span>
                     )}
                   </div>
+                  <DarkModeToggle />
                   <button 
                     onClick={handleLogout}
                     className="hover:text-meat-light transition flex items-center gap-2"
@@ -174,9 +177,12 @@ export default function Header() {
                   </button>
                 </>
               ) : (
-                <Link to="/login" className="hover:text-meat-light transition">
-                  <User size={24} />
-                </Link>
+                <>
+                  <DarkModeToggle />
+                  <Link to="/login" className="hover:text-meat-light transition">
+                    <User size={24} />
+                  </Link>
+                </>
               )}
               <button className="md:hidden">
                 <Menu size={24} />
