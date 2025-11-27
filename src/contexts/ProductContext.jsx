@@ -7,6 +7,7 @@ import {
   seedProducts,
 } from '../services/firestoreService';
 import { meatProducts } from '../data/meatProducts';
+import { offlineStorage } from '../utils/offlineStorage';
 import toast from 'react-hot-toast';
 
 const ProductContext = createContext({});
@@ -24,6 +25,8 @@ export function ProductProvider({ children }) {
     try {
       setLoading(true);
       setError(null);
+      
+      // Try to fetch from Firestore
       const productsFromDB = await getProducts();
 
       // If no products in DB, seed with initial data
@@ -32,13 +35,30 @@ export function ProductProvider({ children }) {
         await seedProducts(meatProducts);
         const seededProducts = await getProducts();
         setProducts(seededProducts);
+        // Cache for offline use
+        await offlineStorage.cacheProducts(seededProducts);
       } else {
         setProducts(productsFromDB);
+        // Cache for offline use
+        await offlineStorage.cacheProducts(productsFromDB);
       }
     } catch (err) {
       setError(err.message);
-      toast.error('Failed to load products');
-      console.error(err);
+      console.log('Failed to load products from server, trying cache...');
+      
+      // Try to load from cache if offline
+      try {
+        const cachedProducts = await offlineStorage.getCachedProducts();
+        if (cachedProducts.length > 0) {
+          setProducts(cachedProducts);
+          toast.success('Loaded products from offline cache', { icon: '📦' });
+        } else {
+          toast.error('No products available offline');
+        }
+      } catch (cacheErr) {
+        toast.error('Failed to load products');
+        console.error(cacheErr);
+      }
     } finally {
       setLoading(false);
     }

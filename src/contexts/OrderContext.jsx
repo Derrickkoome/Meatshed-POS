@@ -4,6 +4,7 @@ import {
   createOrder as createOrderInDB,
   deleteOrder as deleteOrderFromDB
 } from '../services/firestoreService';
+import { offlineStorage } from '../utils/offlineStorage';
 import toast from 'react-hot-toast';
 
 const OrderContext = createContext({});
@@ -28,22 +29,39 @@ export function OrderProvider({ children }) {
     }
   };
 
-  // Create new order in Firestore
+  // Create new order in Firestore or offline
 const createOrder = async (orderData) => {
+  const orderToSave = {
+    ...orderData,
+    id: `ORD-${Date.now()}`,
+    timestamp: orderData.timestamp || new Date().toISOString(),
+  };
+
   try {
-    const newOrder = await createOrderInDB({
-      ...orderData,
-      id: `ORD-${Date.now()}`,
-      timestamp: orderData.timestamp || new Date().toISOString(), // Ensure timestamp exists
-    });
-    
+    // Try to save to Firestore
+    const newOrder = await createOrderInDB(orderToSave);
     setOrders((prev) => [newOrder, ...prev]);
     toast.success('Order completed successfully!');
     return newOrder;
   } catch (error) {
-    console.error('Error creating order:', error);
-    toast.error('Failed to create order');
-    throw error;
+    console.error('Error creating order online:', error);
+    
+    // If offline, save to IndexedDB
+    if (!navigator.onLine) {
+      try {
+        const offlineOrder = await offlineStorage.saveOrderOffline(orderToSave);
+        setOrders((prev) => [offlineOrder, ...prev]);
+        toast.success('Order saved offline. Will sync when online.', { icon: '💾' });
+        return offlineOrder;
+      } catch (offlineError) {
+        console.error('Error saving order offline:', offlineError);
+        toast.error('Failed to save order');
+        throw offlineError;
+      }
+    } else {
+      toast.error('Failed to create order');
+      throw error;
+    }
   }
 };
 
@@ -91,9 +109,44 @@ const createOrder = async (orderData) => {
     }
   };
 
+  // Sync offline orders when online
+  const syncOfflineOrders = async () => {
+    try {
+      const pendingOrders = await offlineStorage.getPendingOrders();
+      
+      for (const order of pendingOrders) {
+        try {
+          const syncedOrder = await createOrderInDB(order);
+          await offlineStorage.markOrderSynced(order.offlineId, syncedOrder.id);
+          console.log(`Synced order ${order.offlineId}`);
+        } catch (error) {
+          console.error(`Failed to sync order ${order.offlineId}:`, error);
+        }
+      }
+      
+      if (pendingOrders.length > 0) {
+        await fetchOrders(); // Refresh orders
+        toast.success(`Synced ${pendingOrders.length} offline orders`);
+      }
+    } catch (error) {
+      console.error('Error syncing offline orders:', error);
+    }
+  };
+
   // Load orders on mount
   useEffect(() => {
     fetchOrders();
+    
+    // Listen for sync events
+    const handleSync = (event) => {
+      syncOfflineOrders();
+    };
+    
+    window.addEventListener('offlineSync', handleSync);
+    
+    return () => {
+      window.removeEventListener('offlineSync', handleSync);
+    };
   }, []);
 
   const value = {
@@ -106,6 +159,7 @@ const createOrder = async (orderData) => {
     getTotalSales,
     getTodaysSales,
     fetchOrders,
+    syncOfflineOrders,
   };
 
   return <OrderContext.Provider value={value}>{children}</OrderContext.Provider>;

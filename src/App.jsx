@@ -10,8 +10,10 @@ import { ExpenseProvider } from './contexts/ExpenseContext';
 import { WasteProvider } from './contexts/WasteContext';
 import { StockAdjustmentProvider } from './contexts/StockAdjustmentContext';
 import { ReconciliationProvider } from './contexts/ReconciliationContext';
+import { OfflineProvider } from './contexts/OfflineContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import RoleGuard from './components/RoleGuard';
+import OfflineIndicator from './components/OfflineIndicator';
 import Header from './components/layout/Header';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
@@ -41,7 +43,8 @@ function App() {
                   <WasteProvider>
                     <StockAdjustmentProvider>
                       <ReconciliationProvider>
-                        <Router>
+                        <OfflineProvider>
+                          <Router>
                       <Toaster position="top-right" />
                   <Routes>
                     <Route path="/" element={<HomePage />} />
@@ -125,7 +128,9 @@ function App() {
                     }
                   />
                 </Routes>
-                        </Router>
+                            <OfflineIndicator />
+                          </Router>
+                        </OfflineProvider>
                       </ReconciliationProvider>
                     </StockAdjustmentProvider>
                   </WasteProvider>
