@@ -267,7 +267,7 @@ export default function OrderHistoryPage() {
               </thead>
               <tbody>
                 {filteredOrders.map((order) => (
-                  <tr key={order.id} className="border-b hover:bg-gray-50">
+                  <tr key={order.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
                     <td className="py-3 px-4 font-mono text-sm">{order.id}</td>
                     <td className="py-3 px-4">
                       {order.isOnlineOrder ? (

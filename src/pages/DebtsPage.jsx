@@ -233,7 +233,7 @@ export default function DebtsPage() {
             {filteredDebts.map((debt) => {
               const totalPaid = debt.totalAmount - debt.remainingBalance;
               return (
-                <tr key={debt.id} className="border-b hover:bg-gray-50">
+                <tr key={debt.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
                   <td className="py-3 px-4 text-sm">
                     {formatDate(debt.createdAt)}
                   </td>
