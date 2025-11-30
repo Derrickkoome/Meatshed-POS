@@ -191,11 +191,27 @@ export default function POSPage() {
   };
 
   const stopBarcodeScan = () => {
-    if (barcodeReader) {
-      barcodeReader.reset();
-      setBarcodeReader(null);
+    try {
+      if (barcodeReader) {
+        barcodeReader.reset();
+        barcodeReader.stopAsyncDecode();
+        setBarcodeReader(null);
+      }
+      
+      // Stop video stream
+      const videoElement = document.getElementById('video');
+      if (videoElement && videoElement.srcObject) {
+        const stream = videoElement.srcObject;
+        const tracks = stream.getTracks();
+        tracks.forEach(track => track.stop());
+        videoElement.srcObject = null;
+      }
+      
+      setShowBarcodeScanner(false);
+    } catch (error) {
+      console.error('Error stopping barcode scan:', error);
+      setShowBarcodeScanner(false);
     }
-    setShowBarcodeScanner(false);
   };
 
   const handleBarcodeScanned = async (barcode) => {
@@ -360,6 +376,20 @@ export default function POSPage() {
       console.warn('Failed to save inventory to localStorage', e);
     }
   }, [inventory]);
+
+  // Cleanup barcode scanner on unmount
+  useEffect(() => {
+    return () => {
+      if (barcodeReader) {
+        try {
+          barcodeReader.reset();
+          barcodeReader.stopAsyncDecode();
+        } catch (error) {
+          console.error('Error cleaning up barcode reader:', error);
+        }
+      }
+    };
+  }, [barcodeReader]);
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -681,8 +711,14 @@ export default function POSPage() {
 
       {/* Barcode Scanner Modal */}
       {showBarcodeScanner && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="card max-w-md w-full">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={stopBarcodeScan}
+        >
+          <div 
+            className="card max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold">Scan Barcode</h2>
               <button
