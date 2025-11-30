@@ -21,7 +21,7 @@ export default function OnlineOrdersPage() {
   } = useOnlineOrders();
   const { createOrder: createMainOrder } = useOrders();
   const { currentUser } = useAuth();
-  const { customers, findCustomerByPhone, addCustomer, updateCustomer: updateCustomerInDB } = useCustomers();
+  const { customers, findCustomerByPhone, addCustomer, updateCustomer: updateCustomerInDB, addLoyaltyPoints } = useCustomers();
   
   const [showOrderForm, setShowOrderForm] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
@@ -112,13 +112,13 @@ export default function OnlineOrdersPage() {
   };
 
   // Create or update customer record
-  const saveCustomerInfo = async (customerData) => {
+  const saveCustomerInfo = async (customerData, orderTotal = 0) => {
     try {
       // Check if customer exists
       const existingCustomer = await findCustomerByPhone(customerData.phone);
       
       if (existingCustomer) {
-        // Update total purchases
+        // Update total purchases and add loyalty points
         const newTotal = (existingCustomer.totalPurchases || 0) + 1;
         await updateCustomerInDB(existingCustomer.id, {
           name: customerData.name,
@@ -126,9 +126,20 @@ export default function OnlineOrdersPage() {
           totalPurchases: newTotal,
           lastOrderDate: new Date()
         });
+
+        // Add loyalty points (1 point per KES 100)
+        const pointsEarned = Math.floor(orderTotal / 100);
+        if (pointsEarned > 0) {
+          try {
+            await addLoyaltyPoints(existingCustomer.id, pointsEarned, orderTotal);
+          } catch (loyaltyError) {
+            console.error('Error adding loyalty points:', loyaltyError);
+            // Don't fail if loyalty points fail
+          }
+        }
       } else {
         // Create new customer
-        await addCustomer({
+        const newCustomer = await addCustomer({
           name: customerData.name,
           phone: customerData.phone,
           address: customerData.address || '',
@@ -137,6 +148,17 @@ export default function OnlineOrdersPage() {
           createdAt: new Date(),
           lastOrderDate: new Date()
         });
+
+        // Add loyalty points for new customer (1 point per KES 100)
+        const pointsEarned = Math.floor(orderTotal / 100);
+        if (pointsEarned > 0 && newCustomer) {
+          try {
+            await addLoyaltyPoints(newCustomer.id, pointsEarned, orderTotal);
+          } catch (loyaltyError) {
+            console.error('Error adding loyalty points for new customer:', loyaltyError);
+            // Don't fail if loyalty points fail
+          }
+        }
       }
     } catch (error) {
       console.error('Error saving customer:', error);
@@ -175,7 +197,7 @@ export default function OnlineOrdersPage() {
           name: orderForm.customerName,
           phone: orderForm.customerPhone,
           address: orderForm.customerAddress
-        });
+        }, totalAmount);
 
         // Create new order and deduct from inventory
         await createOrder({

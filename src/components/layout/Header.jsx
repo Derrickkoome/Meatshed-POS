@@ -22,7 +22,6 @@ export default function Header() {
     { to: '/expenses', icon: TrendingDown, label: 'Expenses', adminOnly: true },
     { to: '/waste', icon: Trash2, label: 'Waste Management', adminOnly: true },
     { to: '/stock-adjustments', icon: History, label: 'Stock History', adminOnly: true },
-    { to: '/reconciliation', icon: Calculator, label: 'End of Day', adminOnly: true },
     { to: '/manual-order', icon: Calendar, label: 'Manual Order Entry', adminOnly: true },
     { to: '/profit-loss', icon: FileText, label: 'Profit & Loss', adminOnly: true },
   ];
@@ -140,7 +139,6 @@ export default function Header() {
                       <Link to="/dashboard" className="hover:text-meat-light transition">Dashboard</Link>
                       <Link to="/inventory" className="hover:text-meat-light transition">Inventory</Link>
                       <Link to="/manual-order" className="hover:text-meat-light transition">Manual Entry</Link>
-                      <Link to="/reconciliation" className="hover:text-meat-light transition">End of Day</Link>
                       <Link to="/expenses" className="hover:text-meat-light transition">Expenses</Link>
                     </>
                   )}

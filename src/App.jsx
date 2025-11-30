@@ -18,7 +18,6 @@ import { DebtProvider } from './contexts/DebtContext';
 import { ExpenseProvider } from './contexts/ExpenseContext';
 import { WasteProvider } from './contexts/WasteContext';
 import { StockAdjustmentProvider } from './contexts/StockAdjustmentContext';
-import { ReconciliationProvider } from './contexts/ReconciliationContext';
 import { OfflineProvider } from './contexts/OfflineContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import RoleGuard from './components/RoleGuard';
@@ -38,7 +37,6 @@ import CustomersPage from './pages/CustomersPage';
 import ExpensesPage from './pages/ExpensesPage';
 import WasteManagementPage from './pages/WasteManagementPage';
 import StockAdjustmentPage from './pages/StockAdjustmentPage';
-import ReconciliationPage from './pages/ReconciliationPage';
 
 function App() {
   return (
@@ -51,9 +49,8 @@ function App() {
                 <ExpenseProvider>
                   <WasteProvider>
                     <StockAdjustmentProvider>
-                      <ReconciliationProvider>
-                        <OfflineProvider>
-                          <Router>
+                      <OfflineProvider>
+                        <Router>
                       <Toaster position="top-right" />
                   <Routes>
                     <Route path="/" element={<HomePage />} />
@@ -115,14 +112,6 @@ function App() {
                                 } 
                               />
                               <Route 
-                                path="/reconciliation" 
-                                element={
-                                  <RoleGuard requireAdmin={true}>
-                                    <ReconciliationPage />
-                                  </RoleGuard>
-                                } 
-                              />
-                              <Route 
                                 path="/manual-order" 
                                 element={
                                   <RoleGuard requireAdmin={true}>
@@ -140,16 +129,15 @@ function App() {
                             <OfflineIndicator />
                           </Router>
                         </OfflineProvider>
-                      </ReconciliationProvider>
-                    </StockAdjustmentProvider>
-                  </WasteProvider>
-                </ExpenseProvider>
-              </DebtProvider>
-            </OnlineOrderProvider>
-          </OrderProvider>
-        </CustomerProvider>
-      </ProductProvider>
-    </AuthProvider>
+                      </StockAdjustmentProvider>
+                    </WasteProvider>
+                  </ExpenseProvider>
+                </DebtProvider>
+              </OnlineOrderProvider>
+            </OrderProvider>
+          </CustomerProvider>
+        </ProductProvider>
+      </AuthProvider>
   );
 }
 

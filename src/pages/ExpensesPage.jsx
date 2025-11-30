@@ -29,6 +29,9 @@ export default function ExpensesPage() {
     amount: '',
     recipient: '',
     date: new Date().toISOString().split('T')[0],
+    paymentMethod: 'cash', // cash, mpesa, split
+    cashAmount: '',
+    mpesaAmount: '',
   });
 
   const expenseCategories = {
@@ -58,10 +61,28 @@ export default function ExpensesPage() {
       return;
     }
 
+    const totalAmount = parseFloat(formData.amount);
+
+    let paymentDetails = {};
+    if (formData.paymentMethod === 'cash') {
+      paymentDetails = { cash: totalAmount };
+    } else if (formData.paymentMethod === 'mpesa') {
+      paymentDetails = { mpesa: totalAmount };
+    } else if (formData.paymentMethod === 'split') {
+      const cash = parseFloat(formData.cashAmount) || 0;
+      const mpesa = parseFloat(formData.mpesaAmount) || 0;
+      if (cash + mpesa !== totalAmount) {
+        alert('Cash and Mpesa amounts must add up to the total amount');
+        return;
+      }
+      paymentDetails = { cash, mpesa };
+    }
+
     try {
       await createExpense({
         ...formData,
-        amount: parseFloat(formData.amount),
+        amount: totalAmount,
+        paymentDetails,
         recordedBy: currentUser?.email || 'Unknown',
         timestamp: new Date(formData.date).toISOString(),
       });
@@ -74,6 +95,9 @@ export default function ExpensesPage() {
         amount: '',
         recipient: '',
         date: new Date().toISOString().split('T')[0],
+        paymentMethod: 'cash',
+        cashAmount: '',
+        mpesaAmount: '',
       });
       setShowModal(false);
     } catch (error) {
@@ -278,6 +302,7 @@ export default function ExpensesPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Recipient</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Payment Method</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Recorded By</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
@@ -306,6 +331,22 @@ export default function ExpensesPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-red-600">
                       {formatPrice(expense.amount)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {expense.paymentDetails ? (
+                        expense.paymentDetails.cash && expense.paymentDetails.mpesa ? (
+                          <div>
+                            <div className="text-green-600">Cash: {formatPrice(expense.paymentDetails.cash)}</div>
+                            <div className="text-blue-600">M-Pesa: {formatPrice(expense.paymentDetails.mpesa)}</div>
+                          </div>
+                        ) : expense.paymentDetails.cash ? (
+                          <span className="text-green-600">Cash</span>
+                        ) : (
+                          <span className="text-blue-600">M-Pesa</span>
+                        )
+                      ) : (
+                        <span className="text-gray-500">-</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                       {expense.recordedBy}
@@ -450,6 +491,80 @@ export default function ExpensesPage() {
                   required
                 />
               </div>
+
+              {/* Payment Method */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Payment Method <span className="text-red-600">*</span>
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, paymentMethod: 'cash', cashAmount: '', mpesaAmount: '' })}
+                    className={`p-3 rounded-lg border-2 text-sm font-medium transition-colors ${
+                      formData.paymentMethod === 'cash'
+                        ? 'border-green-600 bg-green-50 text-green-700'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    Cash
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, paymentMethod: 'mpesa', cashAmount: '', mpesaAmount: '' })}
+                    className={`p-3 rounded-lg border-2 text-sm font-medium transition-colors ${
+                      formData.paymentMethod === 'mpesa'
+                        ? 'border-blue-600 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    M-Pesa
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, paymentMethod: 'split' })}
+                    className={`p-3 rounded-lg border-2 text-sm font-medium transition-colors ${
+                      formData.paymentMethod === 'split'
+                        ? 'border-purple-600 bg-purple-50 text-purple-700'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    Split
+                  </button>
+                </div>
+              </div>
+
+              {/* Split Payment Details */}
+              {formData.paymentMethod === 'split' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Cash Amount
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.cashAmount}
+                      onChange={(e) => setFormData({ ...formData, cashAmount: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      M-Pesa Amount
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.mpesaAmount}
+                      onChange={(e) => setFormData({ ...formData, mpesaAmount: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Submit Button */}
               <div className="flex gap-3 pt-4">

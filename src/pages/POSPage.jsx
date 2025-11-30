@@ -17,7 +17,7 @@ export default function POSPage() {
   const { products, loading, searchProducts, fetchProducts, updateProduct } = useProducts();
   const { createOrder } = useOrders();
   const { currentUser } = useAuth();
-  const { findCustomerByPhone } = useCustomers();
+  const { findCustomerByPhone, addLoyaltyPoints } = useCustomers();
   const { createDebt } = useDebts();
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -229,6 +229,20 @@ export default function POSPage() {
       };
 
       const createdOrder = await createOrder(order);
+
+      // Add loyalty points if customer is selected (1 point per KES 100)
+      if (selectedCustomer?.id) {
+        const pointsEarned = Math.floor(finalTotal / 100); // 1 point per KES 100
+        if (pointsEarned > 0) {
+          try {
+            await addLoyaltyPoints(selectedCustomer.id, pointsEarned, finalTotal);
+            toast.success(`Customer earned ${pointsEarned} loyalty point${pointsEarned !== 1 ? 's' : ''}!`);
+          } catch (error) {
+            console.error('Error adding loyalty points:', error);
+            // Don't fail the order if loyalty points fail
+          }
+        }
+      }
 
       // If payment method is Credit, create a debt record
       if (paymentMethod === 'Credit') {
