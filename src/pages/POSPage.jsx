@@ -36,6 +36,8 @@ export default function POSPage() {
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const [barcodeReader, setBarcodeReader] = useState(null);
+  const [barcodeInput, setBarcodeInput] = useState('');
+  const [barcodeInputRef, setBarcodeInputRef] = useState(null);
   const [inventory, setInventory] = useState(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -231,6 +233,46 @@ export default function POSPage() {
     }
   };
 
+  // Handle manual barcode input
+  const handleBarcodeInputChange = (e) => {
+    setBarcodeInput(e.target.value);
+  };
+
+  const handleBarcodeInputKeyDown = async (e) => {
+    // Hardware scanners typically send Enter after barcode
+    if (e.key === 'Enter' && barcodeInput.trim()) {
+      e.preventDefault();
+      await processBarcodeInput(barcodeInput.trim());
+      setBarcodeInput(''); // Clear input after processing
+    }
+  };
+
+  const processBarcodeInput = async (barcode) => {
+    try {
+      const product = await searchProductByBarcode(barcode);
+      if (product) {
+        addToCart(product);
+        toast.success(`Scanned: ${product.title}`);
+        // Auto-focus back to input for next scan
+        if (barcodeInputRef) {
+          barcodeInputRef.focus();
+        }
+      } else {
+        toast.error('Product not found with this barcode');
+        // Still focus back to input
+        if (barcodeInputRef) {
+          barcodeInputRef.focus();
+        }
+      }
+    } catch (error) {
+      console.error('Error searching product by barcode:', error);
+      toast.error('Failed to search product');
+      if (barcodeInputRef) {
+        barcodeInputRef.focus();
+      }
+    }
+  };
+
   const handleCheckout = () => {
     if (cartItems.length === 0) {
       return;
@@ -391,6 +433,13 @@ export default function POSPage() {
     };
   }, [barcodeReader]);
 
+  // Auto-focus barcode input on mount
+  useEffect(() => {
+    if (barcodeInputRef) {
+      barcodeInputRef.focus();
+    }
+  }, [barcodeInputRef]);
+
   return (
     <div className="container mx-auto px-4 py-6">
       <h1 className="text-3xl font-bold mb-6">Point of Sale</h1>
@@ -434,11 +483,31 @@ export default function POSPage() {
               type="button"
               onClick={startBarcodeScan}
               className="btn-secondary flex items-center gap-2 px-4 py-2"
-              title="Scan barcode"
+              title="Scan barcode with camera"
             >
               <Camera size={20} />
               <Barcode size={16} />
             </button>
+          </div>
+
+          {/* Barcode Input for Hardware Scanner */}
+          <div className="mb-4">
+            <div className="relative">
+              <Barcode className="absolute left-3 top-3 text-gray-400" size={20} />
+              <input
+                ref={setBarcodeInputRef}
+                type="text"
+                value={barcodeInput}
+                onChange={handleBarcodeInputChange}
+                onKeyDown={handleBarcodeInputKeyDown}
+                placeholder="Scan barcode here or click camera button..."
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-meat focus:border-transparent bg-yellow-50"
+                autoFocus
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Hardware scanner: Just scan - Enter key triggers search. Camera scanner: Click camera button above.
+            </p>
           </div>
 
           {/* Products Grid */}
