@@ -166,17 +166,29 @@ export default function POSPage() {
   // Barcode scanning functions
   const startBarcodeScan = async () => {
     try {
-      const codeReader = new BrowserMultiFormatReader();
-      setBarcodeReader(codeReader);
-      setShowBarcodeScanner(true);
+      // Check if camera access is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast.error('Camera not supported on this device');
+        return;
+      }
 
-      const videoInputDevices = await codeReader.listVideoInputDevices();
-      if (videoInputDevices.length === 0) {
+      // Request camera permission and get available devices
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      stream.getTracks().forEach(track => track.stop()); // Stop the test stream
+
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(device => device.kind === 'videoinput');
+
+      if (videoDevices.length === 0) {
         toast.error('No camera found');
         return;
       }
 
-      const selectedDeviceId = videoInputDevices[0].deviceId;
+      const codeReader = new BrowserMultiFormatReader();
+      setBarcodeReader(codeReader);
+      setShowBarcodeScanner(true);
+
+      const selectedDeviceId = videoDevices[0].deviceId;
 
       codeReader.decodeFromVideoDevice(selectedDeviceId, 'video', (result, err) => {
         if (result) {
@@ -188,18 +200,32 @@ export default function POSPage() {
       });
     } catch (error) {
       console.error('Error starting barcode scan:', error);
-      toast.error('Failed to start barcode scanner');
+      if (error.name === 'NotAllowedError') {
+        toast.error('Camera permission denied. Please allow camera access.');
+      } else if (error.name === 'NotFoundError') {
+        toast.error('No camera found on this device.');
+      } else {
+        toast.error('Failed to start barcode scanner');
+      }
     }
   };
 
   const stopBarcodeScan = () => {
     try {
       if (barcodeReader) {
-        barcodeReader.reset();
-        barcodeReader.stopAsyncDecode();
+        // Try different stop methods depending on library version
+        if (typeof barcodeReader.reset === 'function') {
+          barcodeReader.reset();
+        }
+        if (typeof barcodeReader.stopAsyncDecode === 'function') {
+          barcodeReader.stopAsyncDecode();
+        }
+        if (typeof barcodeReader.stop === 'function') {
+          barcodeReader.stop();
+        }
         setBarcodeReader(null);
       }
-      
+
       // Stop video stream
       const videoElement = document.getElementById('video');
       if (videoElement && videoElement.srcObject) {
@@ -208,7 +234,7 @@ export default function POSPage() {
         tracks.forEach(track => track.stop());
         videoElement.srcObject = null;
       }
-      
+
       setShowBarcodeScanner(false);
     } catch (error) {
       console.error('Error stopping barcode scan:', error);
@@ -424,8 +450,16 @@ export default function POSPage() {
     return () => {
       if (barcodeReader) {
         try {
-          barcodeReader.reset();
-          barcodeReader.stopAsyncDecode();
+          // Try different stop methods depending on library version
+          if (typeof barcodeReader.reset === 'function') {
+            barcodeReader.reset();
+          }
+          if (typeof barcodeReader.stopAsyncDecode === 'function') {
+            barcodeReader.stopAsyncDecode();
+          }
+          if (typeof barcodeReader.stop === 'function') {
+            barcodeReader.stop();
+          }
         } catch (error) {
           console.error('Error cleaning up barcode reader:', error);
         }
