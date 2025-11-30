@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import ProfitLossWidget from '../components/ProfitLossWidget';
 import { useOrders } from '../contexts/OrderContext';
 import { useProducts } from '../contexts/ProductContext';
 import { formatPrice } from '../utils/formatters';
@@ -729,10 +728,6 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* P&L Widget */}
-      <div className="mb-8">
-        <ProfitLossWidget />
-      </div>
       {/* Payment Method Breakdown - Today */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div 
