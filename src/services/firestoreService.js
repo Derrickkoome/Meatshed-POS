@@ -89,6 +89,22 @@ export async function deleteProduct(id) {
   }
 }
 
+export async function searchProductByBarcode(barcode) {
+  try {
+    const q = query(collection(db, PRODUCTS_COLLECTION), where('barcode', '==', barcode));
+    const querySnapshot = await getDocs(q);
+    
+    if (!querySnapshot.empty) {
+      const doc = querySnapshot.docs[0];
+      return { id: doc.id, ...doc.data() };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error searching product by barcode:', error);
+    throw error;
+  }
+}
+
 export async function seedProducts(products) {
   try {
     const batch = writeBatch(db);

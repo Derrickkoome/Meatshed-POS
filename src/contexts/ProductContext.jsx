@@ -4,6 +4,7 @@ import {
   createProduct as createProductInDB,
   updateProduct as updateProductInDB,
   deleteProduct as deleteProductFromDB,
+  searchProductByBarcode,
   seedProducts,
 } from '../services/firestoreService';
 import { meatProducts } from '../data/meatProducts';
@@ -141,6 +142,16 @@ export function ProductProvider({ children }) {
     }
   };
 
+  // Search product by barcode
+  const searchProductByBarcode = async (barcode) => {
+    try {
+      return await searchProductByBarcode(barcode);
+    } catch (err) {
+      toast.error('Failed to search product by barcode');
+      throw err;
+    }
+  };
+
   // Load products on mount
   useEffect(() => {
     fetchProducts();
@@ -153,6 +164,7 @@ export function ProductProvider({ children }) {
     searchQuery,
     fetchProducts,
     searchProducts,
+    searchProductByBarcode,
     getProductById,
     addProduct,
     updateProduct,

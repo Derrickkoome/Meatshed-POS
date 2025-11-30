@@ -4,17 +4,18 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCustomers } from '../contexts/CustomerContext';
 import { useDebts } from '../contexts/DebtContext';
 import { formatPrice } from '../utils/formatters';
-import { Search, ShoppingCart, Trash2, Loader, Plus, Minus } from 'lucide-react';
+import { Search, ShoppingCart, Trash2, Loader, Plus, Minus, Barcode, Camera } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Receipt from '../components/Receipt';
 import PaymentModal from '../components/PaymentModal';
 import SplitPaymentModal from '../components/SplitPaymentModal';
 import toast from 'react-hot-toast';
+import { BrowserMultiFormatReader } from '@zxing/browser';
 
 const STORAGE_KEY = 'meatshed:inventory';
 
 export default function POSPage() {
-  const { products, loading, searchProducts, fetchProducts, updateProduct } = useProducts();
+  const { products, loading, searchProducts, fetchProducts, updateProduct, searchProductByBarcode } = useProducts();
   const { createOrder } = useOrders();
   const { currentUser } = useAuth();
   const { findCustomerByPhone, addLoyaltyPoints } = useCustomers();
@@ -33,6 +34,8 @@ export default function POSPage() {
   const [discountValue, setDiscountValue] = useState(0);
   const [deliveryCost, setDeliveryCost] = useState(0);
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
+  const [barcodeReader, setBarcodeReader] = useState(null);
   const [inventory, setInventory] = useState(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -155,6 +158,60 @@ export default function POSPage() {
     } else {
       setSelectedCustomer(null);
       toast.error('Customer not found');
+    }
+  };
+
+  // Barcode scanning functions
+  const startBarcodeScan = async () => {
+    try {
+      const codeReader = new BrowserMultiFormatReader();
+      setBarcodeReader(codeReader);
+      setShowBarcodeScanner(true);
+
+      const videoInputDevices = await codeReader.listVideoInputDevices();
+      if (videoInputDevices.length === 0) {
+        toast.error('No camera found');
+        return;
+      }
+
+      const selectedDeviceId = videoInputDevices[0].deviceId;
+
+      codeReader.decodeFromVideoDevice(selectedDeviceId, 'video', (result, err) => {
+        if (result) {
+          handleBarcodeScanned(result.getText());
+        }
+        if (err && !(err instanceof Error)) {
+          console.error(err);
+        }
+      });
+    } catch (error) {
+      console.error('Error starting barcode scan:', error);
+      toast.error('Failed to start barcode scanner');
+    }
+  };
+
+  const stopBarcodeScan = () => {
+    if (barcodeReader) {
+      barcodeReader.reset();
+      setBarcodeReader(null);
+    }
+    setShowBarcodeScanner(false);
+  };
+
+  const handleBarcodeScanned = async (barcode) => {
+    try {
+      stopBarcodeScan();
+      
+      const product = await searchProductByBarcode(barcode);
+      if (product) {
+        addToCart(product);
+        toast.success(`Scanned: ${product.title}`);
+      } else {
+        toast.error('Product not found with this barcode');
+      }
+    } catch (error) {
+      console.error('Error searching product by barcode:', error);
+      toast.error('Failed to search product');
     }
   };
 
@@ -330,18 +387,29 @@ export default function POSPage() {
           </div>
 
           {/* Search */}
-          <form onSubmit={handleSearch} className="mb-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search products..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-meat focus:border-transparent"
-              />
-            </div>
-          </form>
+          <div className="mb-4 flex gap-2">
+            <form onSubmit={handleSearch} className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 text-gray-400" size={20} />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search products..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-meat focus:border-transparent"
+                />
+              </div>
+            </form>
+            <button
+              type="button"
+              onClick={startBarcodeScan}
+              className="btn-secondary flex items-center gap-2 px-4 py-2"
+              title="Scan barcode"
+            >
+              <Camera size={20} />
+              <Barcode size={16} />
+            </button>
+          </div>
 
           {/* Products Grid */}
           {loading ? (
@@ -609,6 +677,46 @@ export default function POSPage() {
             setCompletedOrder(null);
           }} 
         />
+      )}
+
+      {/* Barcode Scanner Modal */}
+      {showBarcodeScanner && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="card max-w-md w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">Scan Barcode</h2>
+              <button
+                onClick={stopBarcodeScan}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <video 
+                id="video" 
+                width="100%" 
+                height="300" 
+                className="border rounded-lg"
+                autoPlay
+                muted
+                playsInline
+              ></video>
+            </div>
+            
+            <p className="text-sm text-gray-600 text-center mb-4">
+              Position barcode in front of camera
+            </p>
+            
+            <button
+              onClick={stopBarcodeScan}
+              className="btn-secondary w-full"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

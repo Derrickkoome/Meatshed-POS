@@ -1,9 +1,10 @@
 import { useProducts } from '../contexts/ProductContext';
 import { formatPrice } from '../utils/formatters';
-import { Package, Search, Loader, Plus, Trash2, Edit, Image as ImageIcon, Download } from 'lucide-react';
+import { Package, Search, Loader, Plus, Trash2, Edit, Image as ImageIcon, Download, Barcode } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { exportInventoryToPDF, exportInventoryToExcel } from '../utils/exportUtils';
+import BarcodeComponent from 'react-barcode';
 
 export default function InventoryPage() {
   const { products, loading, searchProducts, fetchProducts, addProduct, deleteProduct, updateProduct } = useProducts();
@@ -220,6 +221,24 @@ function ProductCard({ product, onDelete, onEdit, categoryColor }) {
         {product.description || 'Fresh quality meat'}
       </p>
 
+      {product.barcode && (
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Barcode size={16} className="text-gray-500" />
+            <span className="text-sm text-gray-600">Barcode: {product.barcode}</span>
+          </div>
+          <div className="flex justify-center">
+            <BarcodeComponent 
+              value={product.barcode} 
+              width={1.5} 
+              height={40} 
+              fontSize={12}
+              margin={0}
+            />
+          </div>
+        </div>
+      )}
+
       <div className="flex gap-2">
         <button 
           onClick={() => onEdit(product)}
@@ -249,6 +268,7 @@ function ProductModal({ product, onClose, onSave, title }) {
     description: product?.description || '',
     thumbnail: product?.thumbnail || '',
     category: product?.category || 'beef',
+    barcode: product?.barcode || '',
   });
   const [loading, setLoading] = useState(false);
 
@@ -302,6 +322,7 @@ function ProductModal({ product, onClose, onSave, title }) {
         description: formData.description,
         thumbnail: formData.thumbnail,
         category: formData.category,
+        barcode: formData.barcode,
       });
       onClose();
     } catch (error) {
@@ -432,6 +453,22 @@ function ProductModal({ product, onClose, onSave, title }) {
               rows="3"
               placeholder="Fresh, premium quality meat..."
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Barcode
+            </label>
+            <input
+              type="text"
+              value={formData.barcode}
+              onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-meat focus:border-transparent"
+              placeholder="Scan or enter barcode (e.g., 123456789012)"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Optional: Add a barcode for quick scanning at POS
+            </p>
           </div>
 
           {product && (
