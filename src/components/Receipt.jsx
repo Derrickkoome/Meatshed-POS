@@ -1,4 +1,4 @@
-import { formatPrice, formatDate } from '../utils/formatters';
+import { formatPrice, formatDate, calculateWeightPrice } from '../utils/formatters';
 import { Printer } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 
@@ -142,7 +142,7 @@ export default function Receipt({ order, onClose }) {
                     <div className="font-bold break-words">{item.title}</div>
                     <div className="flex justify-between">
                       <span>{item.quantity} x {formatPrice(item.price)}</span>
-                      <span className="font-bold">{formatPrice(item.price * item.quantity)}</span>
+                      <span className="font-bold">{formatPrice(calculateWeightPrice(item.quantity, item.price))}</span>
                     </div>
                   </div>
                 ))}

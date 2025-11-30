@@ -3,7 +3,7 @@ import { useOrders } from '../contexts/OrderContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useCustomers } from '../contexts/CustomerContext';
 import { useDebts } from '../contexts/DebtContext';
-import { formatPrice } from '../utils/formatters';
+import { formatPrice, calculateWeightPrice } from '../utils/formatters';
 import { Search, ShoppingCart, Trash2, Loader, Plus, Minus, Barcode, Camera } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Receipt from '../components/Receipt';
@@ -108,10 +108,10 @@ export default function POSPage() {
     setCartItems([]);
   };
 
-  // ✅ Calculate total with numbers
+  // ✅ Calculate total with weight-based pricing and rounding
   const getCartTotal = () => {
     return cartItems.reduce((total, item) => {
-      return total + (Number(item.price) * Number(item.quantity));
+      return total + calculateWeightPrice(Number(item.quantity), Number(item.price));
     }, 0);
   };
 
@@ -328,7 +328,7 @@ export default function POSPage() {
             productName: item.title,
             quantity: parseFloat(item.quantity),
             price: parseFloat(item.price),
-            total: parseFloat((item.price * item.quantity).toFixed(2))
+            total: calculateWeightPrice(parseFloat(item.quantity), parseFloat(item.price))
           })),
           orderId: createdOrder.id,
           cashier: currentUser?.email || 'Guest'

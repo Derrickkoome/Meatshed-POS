@@ -1,10 +1,11 @@
 import { useProducts } from '../contexts/ProductContext';
 import { formatPrice } from '../utils/formatters';
-import { Package, Search, Loader, Plus, Trash2, Edit, Image as ImageIcon, Download, Barcode } from 'lucide-react';
+import { Package, Search, Loader, Plus, Trash2, Edit, Image as ImageIcon, Download, Barcode, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { exportInventoryToPDF, exportInventoryToExcel } from '../utils/exportUtils';
 import BarcodeComponent from 'react-barcode';
+import { migrateExistingProducts } from '../services/firestoreService';
 
 export default function InventoryPage() {
   const { products, loading, searchProducts, fetchProducts, addProduct, deleteProduct, updateProduct } = useProducts();
@@ -12,6 +13,7 @@ export default function InventoryPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [migrating, setMigrating] = useState(false);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -19,6 +21,25 @@ export default function InventoryPage() {
       searchProducts(searchQuery);
     } else {
       fetchProducts();
+    }
+  };
+
+  const handleMigrateProducts = async () => {
+    if (!window.confirm('This will add unique product codes to all existing products that don\'t have them. Continue?')) {
+      return;
+    }
+
+    try {
+      setMigrating(true);
+      const result = await migrateExistingProducts();
+      toast.success(result.message);
+      // Refresh products to show the new codes
+      await fetchProducts();
+    } catch (error) {
+      console.error('Migration failed:', error);
+      toast.error('Failed to migrate products. Please try again.');
+    } finally {
+      setMigrating(false);
     }
   };
 
@@ -53,28 +74,41 @@ export default function InventoryPage() {
           <h1 className="text-3xl font-bold">Meat Inventory</h1>
           <p className="text-gray-600 mt-1">Manage your meat products and stock levels</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 min-w-0">
+          {/* Migration Button - Prominent */}
           <button
-            onClick={() => exportInventoryToPDF(products)}
-            className="btn-secondary flex items-center gap-2"
+            onClick={() => { console.log('Migrate button clicked'); handleMigrateProducts(); }}
+            disabled={false} // Temporarily enable for testing
+            className="bg-red-500 hover:bg-red-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 font-bold shadow-lg text-lg"
           >
-            <Download size={20} />
-            PDF
+            <RotateCcw size={24} className={migrating ? 'animate-spin' : ''} />
+            {migrating ? '🔄 Migrating...' : '🚀 MIGRATE CODES NOW'}
           </button>
-          <button
-            onClick={() => exportInventoryToExcel(products)}
-            className="btn-secondary flex items-center gap-2"
-          >
-            <Download size={20} />
-            Excel
-          </button>
-          <button 
-            onClick={() => setShowAddModal(true)}
-            className="btn-primary flex items-center gap-2"
-          >
-            <Plus size={20} />
-            Add Meat Product
-          </button>
+          
+          {/* Other buttons */}
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => exportInventoryToPDF(products)}
+              className="btn-secondary flex items-center gap-2"
+            >
+              <Download size={20} />
+              PDF
+            </button>
+            <button
+              onClick={() => exportInventoryToExcel(products)}
+              className="btn-secondary flex items-center gap-2"
+            >
+              <Download size={20} />
+              Excel
+            </button>
+            <button 
+              onClick={() => setShowAddModal(true)}
+              className="btn-primary flex items-center gap-2"
+            >
+              <Plus size={20} />
+              Add Meat Product
+            </button>
+          </div>
         </div>
       </div>
 
@@ -220,6 +254,17 @@ function ProductCard({ product, onDelete, onEdit, categoryColor }) {
       <p className="text-gray-600 text-sm mb-4 line-clamp-2">
         {product.description || 'Fresh quality meat'}
       </p>
+
+      {product.productCode && (
+        <div className="mb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500">Code:</span>
+            <span className="text-sm font-mono bg-gray-100 px-2 py-1 rounded">
+              {product.productCode}
+            </span>
+          </div>
+        </div>
+      )}
 
       {product.barcode && (
         <div className="mb-4">
@@ -457,6 +502,22 @@ function ProductModal({ product, onClose, onSave, title }) {
 
           <div>
             <label className="block text-sm font-medium mb-1">
+              Product Code
+            </label>
+            <input
+              type="text"
+              value={product?.productCode || 'Will be generated automatically'}
+              readOnly
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
+              placeholder="Auto-generated unique code"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Unique product identifier (auto-generated)
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">
               Barcode
             </label>
             <input
@@ -467,7 +528,7 @@ function ProductModal({ product, onClose, onSave, title }) {
               placeholder="Scan or enter barcode (e.g., 123456789012)"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Optional: Add a barcode for quick scanning at POS
+              Optional: Add a barcode for quick scanning at POS (defaults to product code)
             </p>
           </div>
 

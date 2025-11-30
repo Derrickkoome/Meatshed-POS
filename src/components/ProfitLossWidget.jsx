@@ -3,6 +3,7 @@ import { getOrders, getProducts } from '../services/firestoreService';
 import { useExpenses } from '../contexts/ExpenseContext';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
+import { calculateWeightPrice } from '../utils/formatters';
 
 function calculatePnL({ orders, expenses, products, startDate, endDate }) {
   const filteredOrders = orders.filter(order => {
@@ -19,7 +20,7 @@ function calculatePnL({ orders, expenses, products, startDate, endDate }) {
   let totalCOGS = 0;
   filteredOrders.forEach(order => {
     order.items.forEach(item => {
-      totalSales += item.price * item.quantity;
+      totalSales += calculateWeightPrice(item.quantity, item.price);
       totalCOGS += (costMap[item.productId] || 0) * item.quantity;
     });
   });

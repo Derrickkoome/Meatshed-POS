@@ -26,9 +26,11 @@ export const kgToGrams = (kg) => {
   return kg * 1000;
 };
 
-// Calculate price based on weight and rate per kg
+// Calculate price based on weight and rate per kg with rounding to nearest 10
 export const calculateWeightPrice = (weight, pricePerKg) => {
-  return weight * pricePerKg;
+  const exactPrice = weight * pricePerKg;
+  // Round to nearest 10
+  return Math.round(exactPrice / 10) * 10;
 };
 
 // Format date

@@ -19,6 +19,13 @@ const PRODUCTS_COLLECTION = 'products';
 const ORDERS_COLLECTION = 'orders';
 const CUSTOMERS_COLLECTION = 'customers';
 
+// Generate unique product code
+export function generateProductCode() {
+  const timestamp = Date.now().toString().slice(-6); // Last 6 digits of timestamp
+  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0'); // 3-digit random number
+  return `MSH${timestamp}${random}`;
+}
+
 // ============== PRODUCTS ==============
 
 export async function getProducts() {
@@ -51,13 +58,16 @@ export async function getProduct(id) {
 
 export async function createProduct(productData) {
   try {
+    const productCode = generateProductCode();
     const docRef = await addDoc(collection(db, PRODUCTS_COLLECTION), {
       ...productData,
+      productCode,
+      barcode: productCode, // Use product code as default barcode
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
     
-    return { id: docRef.id, ...productData };
+    return { id: docRef.id, ...productData, productCode, barcode: productCode };
   } catch (error) {
     console.error('Error creating product:', error);
     throw error;
@@ -122,6 +132,71 @@ export async function seedProducts(products) {
     console.log('Products seeded successfully');
   } catch (error) {
     console.error('Error seeding products:', error);
+    throw error;
+  }
+}
+
+export async function migrateExistingProducts() {
+  try {
+    console.log('Starting product code migration...');
+    
+    // Get all products
+    const querySnapshot = await getDocs(collection(db, PRODUCTS_COLLECTION));
+    const productsToUpdate = [];
+    
+    querySnapshot.forEach((doc) => {
+      const product = { id: doc.id, ...doc.data() };
+      // Check if product doesn't have productCode
+      if (!product.productCode) {
+        productsToUpdate.push(product);
+      }
+    });
+    
+    if (productsToUpdate.length === 0) {
+      console.log('All products already have product codes. Migration complete.');
+      return { migrated: 0, message: 'All products already have product codes' };
+    }
+    
+    console.log(`Found ${productsToUpdate.length} products without codes. Migrating...`);
+    
+    // Update products in batches
+    const batch = writeBatch(db);
+    let batchCount = 0;
+    
+    for (const product of productsToUpdate) {
+      const productCode = generateProductCode();
+      const docRef = doc(db, PRODUCTS_COLLECTION, product.id);
+      
+      batch.update(docRef, {
+        productCode,
+        barcode: product.barcode || productCode, // Keep existing barcode or use product code
+        updatedAt: serverTimestamp()
+      });
+      
+      batchCount++;
+      
+      // Commit batch every 500 products (Firestore batch limit)
+      if (batchCount >= 500) {
+        await batch.commit();
+        console.log(`Migrated ${batchCount} products...`);
+        batchCount = 0;
+      }
+    }
+    
+    // Commit remaining products
+    if (batchCount > 0) {
+      await batch.commit();
+      console.log(`Migrated remaining ${batchCount} products.`);
+    }
+    
+    console.log(`Migration complete! Added product codes to ${productsToUpdate.length} products.`);
+    return { 
+      migrated: productsToUpdate.length, 
+      message: `Successfully migrated ${productsToUpdate.length} products` 
+    };
+    
+  } catch (error) {
+    console.error('Error migrating products:', error);
     throw error;
   }
 }

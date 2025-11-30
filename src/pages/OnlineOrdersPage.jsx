@@ -3,7 +3,7 @@ import { useOnlineOrders } from '../contexts/OnlineOrderContext';
 import { useOrders } from '../contexts/OrderContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useCustomers } from '../contexts/CustomerContext';
-import { formatPrice } from '../utils/formatters';
+import { formatPrice, calculateWeightPrice } from '../utils/formatters';
 import { Plus, Search, DollarSign, Package, XCircle, Edit2, Trash2, Loader, FileText } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
@@ -67,14 +67,14 @@ export default function OnlineOrdersPage() {
       if (product) {
         newItems[index].productName = product.title;
         newItems[index].price = product.price;
-        newItems[index].total = newItems[index].quantity * product.price;
+        newItems[index].total = calculateWeightPrice(newItems[index].quantity, product.price);
       }
     }
 
     if (field === 'quantity' || field === 'price') {
       const qty = parseFloat(newItems[index].quantity) || 0;
       const price = parseFloat(newItems[index].price) || 0;
-      newItems[index].total = qty * price;
+      newItems[index].total = calculateWeightPrice(qty, price);
     }
 
     setOrderForm({ ...orderForm, items: newItems });

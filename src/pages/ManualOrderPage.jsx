@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useProducts } from '../contexts/ProductContext';
 import { useOrders } from '../contexts/OrderContext';
 import { useAuth } from '../contexts/AuthContext';
-import { formatPrice } from '../utils/formatters';
+import { formatPrice, calculateWeightPrice } from '../utils/formatters';
 import { Calendar, Plus, Minus, Trash2, Save, ShoppingCart } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -60,7 +60,7 @@ export default function ManualOrderPage() {
   };
 
   const calculateTotal = () => {
-    const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const cartTotal = cart.reduce((sum, item) => sum + calculateWeightPrice(item.quantity, item.price), 0);
     return cartTotal + parseFloat(deliveryCost || 0);
   };
 
